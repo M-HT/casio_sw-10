@@ -1,0 +1,9 @@
+*.exe
+*.EXE
+**/conv2dll/conv2dll
+**/sw10_alsadrv/sw10_alsadrv
+**/sw10_pcmtools/sw10_pcmconvert
+**/sw10_pcmtools/sw10_pcmconvert_dll
+**/sw10_pcmtools/sw10_pcmcompare_dll
+**/sw10_pcmtools/sw10_pcmcompare_dll_external
+**/zextractfile/zextractfile

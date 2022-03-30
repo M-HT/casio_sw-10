@@ -1,0 +1,8 @@
+all: sw10_alsadrv
+
+sw10_alsadrv: sw10_alsadrv.c ../VLSG/VLSG.c ../VLSG/VLSG.h
+	$(PNDSDK)/bin/pandora-gcc -O2 -Wall -DPANDORA -o sw10_alsadrv sw10_alsadrv.c ../VLSG/VLSG.c -I../VLSG -I$(PNDSDK)/usr/include -lasound -lpthread -lrt -L$(PNDSDK)/usr/lib
+
+.PHONY: clean
+clean:
+	rm -f sw10_alsadrv

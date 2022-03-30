@@ -1,0 +1,8 @@
+all: zextractfile
+
+zextractfile: zextractfile.c blast/blast.c blast/blast.h
+	$(PNDSDK)/bin/pandora-gcc -O2 -Wall -DPANDORA -o zextractfile zextractfile.c blast/blast.c
+
+.PHONY: clean
+clean:
+	rm -f zextractfile

@@ -1,0 +1,8 @@
+all: conv2dll.exe
+
+conv2dll.exe: conv2dll.c
+	gcc -O2 -Wall -o conv2dll.exe conv2dll.c
+
+.PHONY: clean
+clean:
+	rm -f conv2dll.exe
