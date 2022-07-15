@@ -634,7 +634,7 @@ int main(int argc, char *argv[])
         num_calls = 0;
         remaining_events = midi_events[0].len;
         cur_event = midi_events + 1;
-        while (current_time < midi_events[0].time)
+        while (current_time < midi_events[0].time + 112)
         {
             uint32_t next_time;
             num_calls++;
@@ -647,11 +647,17 @@ int main(int argc, char *argv[])
 
                 if (cur_event->len <= 8)
                 {
-                    lsgWrite(cur_event->data, cur_event->len);
+                    if (cur_event->data[0] != 0xff) // skip meta events
+                    {
+                        lsgWrite(cur_event->data, cur_event->len);
+                    }
                 }
                 else
                 {
-                    lsgWrite(cur_event->sysex, cur_event->len);
+                    if (cur_event->sysex[0] != 0xff) // skip meta events
+                    {
+                        lsgWrite(cur_event->sysex, cur_event->len);
+                    }
                 }
 
                 cur_event++;
