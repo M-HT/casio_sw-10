@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022 Roman Pauer
+ *  Copyright (C) 2022-2023 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -32,6 +32,8 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <pwd.h>
 #include <alsa/asoundlib.h>
 #include "VLSG.h"
 
@@ -50,6 +52,7 @@ static snd_seq_t *midi_seq;
 static int midi_port_id;
 static pthread_t midi_thread;
 static snd_pcm_t *midi_pcm;
+static int retry_open_pcm;
 
 static int frequency, polyphony, reverb_effect, daemonize;
 static const char *rom_filepath = "ROMSXGM.BIN";
@@ -805,14 +808,30 @@ static int set_sw_params(void)
     return 0;
 }
 
-static int open_pcm_output(void) __attribute__((noinline));
-static int open_pcm_output(void)
+static int open_pcm_output(int can_retry) __attribute__((noinline));
+static int open_pcm_output(int can_retry)
 {
     int err;
+
+    retry_open_pcm = 0;
 
     err = snd_pcm_open(&midi_pcm, "default", SND_PCM_STREAM_PLAYBACK, 0);
     if (err < 0)
     {
+        if ((err == -ECONNREFUSED) && can_retry)
+        {
+            if (getuid() == 0)
+            {
+                // connection refused can occur if:
+                // - ALSA uses PulseAudio, and
+                // - program is running as root (sudo), and
+                // - PulseAudio is running per-user (not system-wide)
+                // to handle this case, retry opening pcm output after dropping privileges (and defining necessary environment variables)
+                retry_open_pcm = 1;
+                return 1;
+            }
+        }
+
         fprintf(stderr, "Error opening PCM device: %i\n%s\n", err, snd_strerror(err));
         return -1;
     }
@@ -859,6 +878,7 @@ static int drop_privileges(void)
         return -1;
     }
 
+    errno = 0;
     llid = strtoll(sudo_id, NULL, 10);
     uid = (uid_t) llid;
     if (errno != 0 || uid == 0 || llid != (long long int)uid)
@@ -875,6 +895,7 @@ static int drop_privileges(void)
             return -3;
         }
 
+        errno = 0;
         llid = strtoll(sudo_id, NULL, 10);
         gid = (gid_t) llid;
         if (errno != 0 || gid == 0 || llid != (long long int)gid)
@@ -895,6 +916,37 @@ static int drop_privileges(void)
     printf("Dropped root privileges\n");
 
     chdir("/");
+
+    if (retry_open_pcm)
+    {
+        const char *xdg_dir;
+        char buf[32];
+        struct stat statbuf;
+        struct passwd *passwdbuf;
+
+        xdg_dir = getenv("XDG_RUNTIME_DIR");
+        if ((xdg_dir == NULL) || (*xdg_dir == 0))
+        {
+            snprintf(buf, 32, "/run/user/%lli", (long long int)uid);
+
+            if ((stat(buf, &statbuf) == 0) && ((statbuf.st_mode & S_IFMT) == S_IFDIR) && (statbuf.st_uid == uid))
+            {
+                // if XDG_RUNTIME_DIR is not defined and directory /run/user/$USER exists then use it for XDG_RUNTIME_DIR
+                setenv("XDG_RUNTIME_DIR", buf, 1);
+
+                xdg_dir = getenv("XDG_CONFIG_HOME");
+                if ((xdg_dir == NULL) || (*xdg_dir == 0))
+                {
+                    passwdbuf = getpwuid(uid);
+                    if (passwdbuf != NULL)
+                    {
+                        // also if XDG_CONFIG_HOME is not defined then define it as user's home directory
+                        setenv("XDG_CONFIG_HOME", passwdbuf->pw_dir, 1);
+                    }
+                }
+            }
+        }
+    }
 
     return 0;
 }
@@ -1041,7 +1093,7 @@ int main(int argc, char *argv[])
         return 4;
     }
 
-    if (open_pcm_output() < 0)
+    if (open_pcm_output(1) < 0)
     {
         close_midi_port();
         stop_synth();
@@ -1054,6 +1106,16 @@ int main(int argc, char *argv[])
         close_midi_port();
         stop_synth();
         return 6;
+    }
+
+    if (retry_open_pcm)
+    {
+        if (open_pcm_output(0) < 0)
+        {
+            close_midi_port();
+            stop_synth();
+            return 7;
+        }
     }
 
     main_loop();
