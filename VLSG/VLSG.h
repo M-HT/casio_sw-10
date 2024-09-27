@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022 Roman Pauer
+ *  Copyright (C) 2022-2024 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -43,7 +43,7 @@ void VLSG_SetFunc_GetTime(uint32_t (*get_time)(void));
 int32_t VLSG_SetParameter(uint32_t type, uintptr_t value);
 int32_t VLSG_PlaybackStart(void);
 int32_t VLSG_PlaybackStop(void);
-void VLSG_AddMidiData(uint8_t *ptr, uint32_t len);
+void VLSG_AddMidiData(const uint8_t *ptr, uint32_t len);
 int32_t VLSG_FillOutputBuffer(uint32_t output_buffer_counter);
 
 #endif

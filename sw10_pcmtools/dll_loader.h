@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022 Roman Pauer
+ *  Copyright (C) 2022-2024 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -33,7 +33,7 @@ typedef struct
     int (*VLSG_PlaybackStart)(void);
     void (*VLSG_PlaybackStop)(void);
     int (*VLSG_SetParameter)(uint32_t ID, uint32_t value);
-    void (*VLSG_AddMidiData)(void *event, uint32_t length);
+    void (*VLSG_AddMidiData)(const void *event, uint32_t length);
     int32_t (*VLSG_FillOutputBuffer)(uint32_t output_counter);
     void (*VLSG_SetFunc_GetTime)(uint32_t (*func)(void));
     const char *(*VLSG_GetName)(void);

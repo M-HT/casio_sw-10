@@ -130,7 +130,7 @@ static inline void WRITE_LE_UINT32(uint8_t *ptr, uint32_t value)
     ptr[3] = (value >> 24) & 0xff;
 }
 
-static void write_event(uint8_t *event, unsigned int length)
+static void write_event(const uint8_t *event, unsigned int length)
 {
     uint8_t event_time[4];
 

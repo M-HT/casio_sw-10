@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022 Roman Pauer
+ *  Copyright (C) 2022-2024 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -145,7 +145,7 @@ static Channel_Data channel_data[MIDI_CHANNELS];
 static Voice_Data voice_data[MAX_VOICES];
 static uint32_t effect_type;
 static int32_t current_polyphony;
-static uint8_t *romsxgm_ptr;
+static const uint8_t *romsxgm_ptr;
 static uint32_t output_frequency;
 static int32_t maximum_polyphony_new_value;
 static uint32_t system_time_1;
@@ -454,7 +454,7 @@ int32_t VLSG_SetParameter(uint32_t type, uintptr_t value)
             return 1;
 
         case PARAMETER_ROMAddress:
-            romsxgm_ptr = (uint8_t *)value;
+            romsxgm_ptr = (const uint8_t *)value;
             return 1;
 
         case PARAMETER_Frequency:
@@ -596,7 +596,7 @@ int32_t VLSG_PlaybackStop(void)
     return EMPTY_DeinitializeEffect();
 }
 
-void VLSG_AddMidiData(uint8_t *ptr, uint32_t len)
+void VLSG_AddMidiData(const uint8_t *ptr, uint32_t len)
 {
     for (; len != 0; len--)
     {
@@ -1753,7 +1753,7 @@ static void GenerateOutputData(uint8_t *output_ptr, uint32_t offset1, uint32_t o
     uint32_t value1;
     uint32_t value2;
     uint32_t value3;
-    uint8_t *rom_ptr;
+    const uint8_t *rom_ptr;
     int32_t value4;
     int32_t value5;
     int32_t value6;
@@ -2389,7 +2389,7 @@ static void ResetChannel(Channel_Data *channel_data_ptr)
 
 static uint32_t sub_C00373A0(uint32_t arg_0, int32_t arg_4)
 {
-    uint8_t *address1;
+    const uint8_t *address1;
     uint32_t offset1;
     int32_t offset2;
 
