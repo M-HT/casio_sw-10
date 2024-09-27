@@ -143,7 +143,7 @@ static void write_event(uint8_t *event, unsigned int length)
     }
 }
 
-static void process_event(snd_seq_event_t *event)
+static void process_event(snd_seq_event_t *event, uint8_t *running_status)
 {
     uint8_t data[12];
     int length;
@@ -156,7 +156,15 @@ static void process_event(snd_seq_event_t *event)
             data[2] = event->data.note.velocity;
             length = 3;
 
-            write_event(data, length);
+            if (data[0] != *running_status)
+            {
+                *running_status = data[0];
+                write_event(data, length);
+            }
+            else
+            {
+                write_event(data + 1, length - 1);
+            }
 
 #ifdef PRINT_EVENTS
             printf("Note ON, channel:%d note:%d velocity:%d\n", event->data.note.channel, event->data.note.note, event->data.note.velocity);
@@ -170,7 +178,15 @@ static void process_event(snd_seq_event_t *event)
             data[2] = event->data.note.velocity;
             length = 3;
 
-            write_event(data, length);
+            if (data[0] != *running_status)
+            {
+                *running_status = data[0];
+                write_event(data, length);
+            }
+            else
+            {
+                write_event(data + 1, length - 1);
+            }
 
 #ifdef PRINT_EVENTS
             printf("Note OFF, channel:%d note:%d velocity:%d\n", event->data.note.channel, event->data.note.note, event->data.note.velocity);
@@ -186,7 +202,15 @@ static void process_event(snd_seq_event_t *event)
             data[2] = event->data.note.velocity;
             length = 3;
 
-            write_event(data, length);
+            if (data[0] != *running_status)
+            {
+                *running_status = data[0];
+                write_event(data, length);
+            }
+            else
+            {
+                write_event(data + 1, length - 1);
+            }
 #endif
 
 #ifdef PRINT_EVENTS
@@ -201,7 +225,15 @@ static void process_event(snd_seq_event_t *event)
             data[2] = event->data.control.value;
             length = 3;
 
-            write_event(data, length);
+            if (data[0] != *running_status)
+            {
+                *running_status = data[0];
+                write_event(data, length);
+            }
+            else
+            {
+                write_event(data + 1, length - 1);
+            }
 
 #ifdef PRINT_EVENTS
             printf("Controller, channel:%d param:%d value:%d\n", event->data.control.channel, event->data.control.param, event->data.control.value);
@@ -214,7 +246,15 @@ static void process_event(snd_seq_event_t *event)
             data[1] = event->data.control.value;
             length = 2;
 
-            write_event(data, length);
+            if (data[0] != *running_status)
+            {
+                *running_status = data[0];
+                write_event(data, length);
+            }
+            else
+            {
+                write_event(data + 1, length - 1);
+            }
 
 #ifdef PRINT_EVENTS
             printf("Program change, channel:%d value:%d\n", event->data.control.channel, event->data.control.value);
@@ -227,7 +267,15 @@ static void process_event(snd_seq_event_t *event)
             data[1] = event->data.control.value;
             length = 2;
 
-            write_event(data, length);
+            if (data[0] != *running_status)
+            {
+                *running_status = data[0];
+                write_event(data, length);
+            }
+            else
+            {
+                write_event(data + 1, length - 1);
+            }
 
 #ifdef PRINT_EVENTS
             printf("Channel pressure, channel:%d value:%d\n", event->data.control.channel, event->data.control.value);
@@ -241,7 +289,15 @@ static void process_event(snd_seq_event_t *event)
             data[2] = ((event->data.control.value + 0x2000) >> 7) & 0x7f;
             length = 3;
 
-            write_event(data, length);
+            if (data[0] != *running_status)
+            {
+                *running_status = data[0];
+                write_event(data, length);
+            }
+            else
+            {
+                write_event(data + 1, length - 1);
+            }
 
 #ifdef PRINT_EVENTS
             printf("Pitch bend, channel:%d value:%d\n", event->data.control.channel, event->data.control.value);
@@ -259,7 +315,15 @@ static void process_event(snd_seq_event_t *event)
                 data[4] = event->data.control.value & 0x7f;
                 length = 5;
 
-                write_event(data, length);
+                if (data[0] != *running_status)
+                {
+                    *running_status = data[0];
+                    write_event(data, length);
+                }
+                else
+                {
+                    write_event(data + 1, length - 1);
+                }
 
 #ifdef PRINT_EVENTS
                 printf("Controller 14-bit, channel:%d param:%d value:%d\n", event->data.control.channel, event->data.control.param, event->data.control.value);
@@ -288,7 +352,15 @@ static void process_event(snd_seq_event_t *event)
             data[8] = event->data.control.value & 0x7f;
             length = 9;
 
-            write_event(data, length);
+            if (data[0] != *running_status)
+            {
+                *running_status = data[0];
+                write_event(data, length);
+            }
+            else
+            {
+                write_event(data + 1, length - 1);
+            }
 #endif
 
 #ifdef PRINT_EVENTS
@@ -309,7 +381,15 @@ static void process_event(snd_seq_event_t *event)
             data[8] = event->data.control.value & 0x7f;
             length = 9;
 
-            write_event(data, length);
+            if (data[0] != *running_status)
+            {
+                *running_status = data[0];
+                write_event(data, length);
+            }
+            else
+            {
+                write_event(data + 1, length - 1);
+            }
 
 #ifdef PRINT_EVENTS
             printf("RPN, channel:%d param:%d value:%d\n", event->data.control.channel, event->data.control.param, event->data.control.value);
@@ -320,6 +400,7 @@ static void process_event(snd_seq_event_t *event)
         case SND_SEQ_EVENT_SYSEX:
             length = event->data.ext.len;
 
+            *running_status = 0;
             write_event(event->data.ext.ptr, length);
 
 #ifdef PRINT_EVENTS
@@ -335,6 +416,7 @@ static void process_event(snd_seq_event_t *event)
             data[1] = ev->data.control.value;
             length = 2;
 
+            *running_status = 0;
             write_event(data, length);
 #endif
 
@@ -351,6 +433,9 @@ static void process_event(snd_seq_event_t *event)
             data[1] = (event->data.control.value + 0x2000) & 0x7f;
             data[2] = ((event->data.control.value + 0x2000) >> 7) & 0x7f;
             length = 3;
+
+            *running_status = 0;
+            write_event(data, length);
 #endif
 
 #ifdef PRINT_EVENTS
@@ -366,6 +451,7 @@ static void process_event(snd_seq_event_t *event)
             data[1] = ev->data.control.value;
             length = 2;
 
+            *running_status = 0;
             write_event(data, length);
 #endif
 
@@ -381,6 +467,7 @@ static void process_event(snd_seq_event_t *event)
             data[0] = 0xF6;
             length = 1;
 
+            *running_status = 0;
             write_event(data, length);
 #endif
 
@@ -423,7 +510,7 @@ static void process_event(snd_seq_event_t *event)
         case SND_SEQ_EVENT_START:
             // Not used by CASIO SW-10
 #if 0
-            bytes[0] = 0xFA;
+            data[0] = 0xFA;
             length = 1;
 
             write_event(data, length);
@@ -438,7 +525,7 @@ static void process_event(snd_seq_event_t *event)
         case SND_SEQ_EVENT_CONTINUE:
             // Not used by CASIO SW-10
 #if 0
-            bytes[0] = 0xFB;
+            data[0] = 0xFB;
             length = 1;
 
             write_event(data, length);
@@ -453,7 +540,7 @@ static void process_event(snd_seq_event_t *event)
         case SND_SEQ_EVENT_STOP:
             // Not used by CASIO SW-10
 #if 0
-            bytes[0] = 0xFC;
+            data[0] = 0xFC;
             length = 1;
 
             write_event(data, length);
@@ -468,7 +555,7 @@ static void process_event(snd_seq_event_t *event)
         case SND_SEQ_EVENT_SENSING:
             // Not used by CASIO SW-10
 #if 0
-            bytes[0] = 0xFE;
+            data[0] = 0xFE;
             length = 1;
 
             write_event(data, length);
@@ -483,7 +570,7 @@ static void process_event(snd_seq_event_t *event)
         case SND_SEQ_EVENT_RESET:
             // Not handled correctly by CASIO SW-10
 #if 0
-            bytes[0] = 0xFF;
+            data[0] = 0xFF;
             length = 1;
 
             write_event(data, length);
@@ -513,6 +600,7 @@ static void *midi_thread_proc(void *arg)
 {
     snd_seq_event_t *event;
     int err;
+    uint8_t running_status;
 
     // try setting thread scheduler (only root)
     set_thread_scheduler();
@@ -520,13 +608,15 @@ static void *midi_thread_proc(void *arg)
     // set thread as initialized
     *(int *)arg = 1;
 
+    running_status = 0;
+
     while(1)
     {
         err = snd_seq_event_input(midi_seq, &event);
         if (err < 0)
             continue;
 
-        process_event(event);
+        process_event(event, &running_status);
     }
 
     return NULL;
