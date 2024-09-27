@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022-2023 Roman Pauer
+ *  Copyright (C) 2022-2024 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -217,7 +217,7 @@ static void process_event(snd_seq_event_t *event)
             write_event(data, length);
 
 #ifdef PRINT_EVENTS
-            printf("Program change: channel:%d value:%d\n", event->data.control.channel, event->data.control.value);
+            printf("Program change, channel:%d value:%d\n", event->data.control.channel, event->data.control.value);
 #endif
 
             break;
@@ -230,7 +230,7 @@ static void process_event(snd_seq_event_t *event)
             write_event(data, length);
 
 #ifdef PRINT_EVENTS
-            printf("Channel pressure: channel:%d value:%d\n", event->data.control.channel, event->data.control.value);
+            printf("Channel pressure, channel:%d value:%d\n", event->data.control.channel, event->data.control.value);
 #endif
 
             break;
@@ -244,7 +244,7 @@ static void process_event(snd_seq_event_t *event)
             write_event(data, length);
 
 #ifdef PRINT_EVENTS
-            printf("Pitch bend: channel:%d value:%d\n", event->data.control.channel, event->data.control.value);
+            printf("Pitch bend, channel:%d value:%d\n", event->data.control.channel, event->data.control.value);
 #endif
 
             break;
@@ -260,11 +260,17 @@ static void process_event(snd_seq_event_t *event)
                 length = 5;
 
                 write_event(data, length);
-            }
 
 #ifdef PRINT_EVENTS
-            printf("Controller 14-bit, channel:%d param:%d value:%d\n", event->data.control.channel, event->data.control.param, event->data.control.value);
+                printf("Controller 14-bit, channel:%d param:%d value:%d\n", event->data.control.channel, event->data.control.param, event->data.control.value);
 #endif
+            }
+            else
+            {
+#ifdef PRINT_EVENTS
+                printf("Unknown controller, channel:%d param:%d value:%d\n", event->data.control.channel, event->data.control.param, event->data.control.value);
+#endif
+            }
 
             break;
 
@@ -318,6 +324,173 @@ static void process_event(snd_seq_event_t *event)
 
 #ifdef PRINT_EVENTS
             printf("SysEx (fragment) of size %d\n", event->data.ext.len);
+#endif
+
+            break;
+
+        case SND_SEQ_EVENT_QFRAME:
+            // Not handled by CASIO SW-10
+#if 0
+            data[0] = 0xF1;
+            data[1] = ev->data.control.value;
+            length = 2;
+
+            write_event(data, length);
+#endif
+
+#ifdef PRINT_EVENTS
+            printf("MTC Quarter Frame, value:%d\n", event->data.control.value);
+#endif
+
+            break;
+
+        case SND_SEQ_EVENT_SONGPOS:
+            // Not handled by CASIO SW-10
+#if 0
+            data[0] = 0xF2;
+            data[1] = (event->data.control.value + 0x2000) & 0x7f;
+            data[2] = ((event->data.control.value + 0x2000) >> 7) & 0x7f;
+            length = 3;
+#endif
+
+#ifdef PRINT_EVENTS
+            printf("Song Position, value:%d\n", event->data.control.value);
+#endif
+
+            break;
+
+        case SND_SEQ_EVENT_SONGSEL:
+            // Not handled by CASIO SW-10
+#if 0
+            data[0] = 0xF3;
+            data[1] = ev->data.control.value;
+            length = 2;
+
+            write_event(data, length);
+#endif
+
+#ifdef PRINT_EVENTS
+            printf("Song Select, value:%d\n", event->data.control.value);
+#endif
+
+            break;
+
+        case SND_SEQ_EVENT_TUNE_REQUEST:
+            // Not handled by CASIO SW-10
+#if 0
+            data[0] = 0xF6;
+            length = 1;
+
+            write_event(data, length);
+#endif
+
+#ifdef PRINT_EVENTS
+            printf("Tune Request\n");
+#endif
+
+            break;
+
+        case SND_SEQ_EVENT_CLOCK:
+            // Not used by CASIO SW-10
+#if 0
+            data[0] = 0xF8;
+            length = 1;
+
+            write_event(data, length);
+#endif
+
+#ifdef PRINT_EVENTS
+            printf("Clock\n");
+#endif
+
+            break;
+
+        case SND_SEQ_EVENT_TICK:
+            // Not used by CASIO SW-10
+#if 0
+            data[0] = 0xF9;
+            length = 1;
+
+            write_event(data, length);
+#endif
+
+#ifdef PRINT_EVENTS
+            printf("Tick\n");
+#endif
+
+            break;
+
+        case SND_SEQ_EVENT_START:
+            // Not used by CASIO SW-10
+#if 0
+            bytes[0] = 0xFA;
+            length = 1;
+
+            write_event(data, length);
+#endif
+
+#ifdef PRINT_EVENTS
+            printf("Start\n");
+#endif
+
+            break;
+
+        case SND_SEQ_EVENT_CONTINUE:
+            // Not used by CASIO SW-10
+#if 0
+            bytes[0] = 0xFB;
+            length = 1;
+
+            write_event(data, length);
+#endif
+
+#ifdef PRINT_EVENTS
+            printf("Continue\n");
+#endif
+
+            break;
+
+        case SND_SEQ_EVENT_STOP:
+            // Not used by CASIO SW-10
+#if 0
+            bytes[0] = 0xFC;
+            length = 1;
+
+            write_event(data, length);
+#endif
+
+#ifdef PRINT_EVENTS
+            printf("Stop\n");
+#endif
+
+            break;
+
+        case SND_SEQ_EVENT_SENSING:
+            // Not used by CASIO SW-10
+#if 0
+            bytes[0] = 0xFE;
+            length = 1;
+
+            write_event(data, length);
+#endif
+
+#ifdef PRINT_EVENTS
+            printf("Active Sense\n");
+#endif
+
+            break;
+
+        case SND_SEQ_EVENT_RESET:
+            // Not handled correctly by CASIO SW-10
+#if 0
+            bytes[0] = 0xFF;
+            length = 1;
+
+            write_event(data, length);
+#endif
+
+#ifdef PRINT_EVENTS
+            printf("Reset\n");
 #endif
 
             break;
