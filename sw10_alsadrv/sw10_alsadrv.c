@@ -1142,7 +1142,11 @@ static int drop_privileges(void)
     sudo_id = secure_getenv("SUDO_UID");
     if (sudo_id == NULL)
     {
-        return -1;
+        sudo_id = secure_getenv("PKEXEC_UID");
+        if (sudo_id == NULL)
+        {
+            return -1;
+        }
     }
 
     errno = 0;
@@ -1159,15 +1163,26 @@ static int drop_privileges(void)
         sudo_id = secure_getenv("SUDO_GID");
         if (sudo_id == NULL)
         {
-            return -3;
-        }
+            passwdbuf = getpwuid(uid);
+            if (passwdbuf != NULL)
+            {
+                gid = passwdbuf->pw_gid;
+            }
 
-        errno = 0;
-        llid = strtoll(sudo_id, NULL, 10);
-        gid = (gid_t) llid;
-        if (errno != 0 || gid == 0 || llid != (long long int)gid)
+            if (gid == 0)
+            {
+                return -3;
+            }
+        }
+        else
         {
-            return -4;
+            errno = 0;
+            llid = strtoll(sudo_id, NULL, 10);
+            gid = (gid_t) llid;
+            if (errno != 0 || gid == 0 || llid != (long long int)gid)
+            {
+                return -4;
+            }
         }
     }
 
