@@ -52,7 +52,7 @@ static snd_seq_t *midi_seq;
 static int midi_port_id;
 static pthread_t midi_thread;
 static snd_pcm_t *midi_pcm;
-static int retry_open_pcm;
+static volatile int midi_init_state;
 
 static int frequency, polyphony, reverb_effect, daemonize;
 static const char *rom_filepath = "ROMSXGM.BIN";
@@ -95,6 +95,19 @@ static void set_thread_scheduler(void)
     {
         sched_setscheduler(0, SCHED_FIFO, &param);
     }
+}
+
+static void wait_for_midi_initialization(void) __attribute__((noinline));
+static void wait_for_midi_initialization(void)
+{
+    while (midi_init_state == 0)
+    {
+        struct timespec req;
+
+        req.tv_sec = 0;
+        req.tv_nsec = 10000000;
+        nanosleep(&req, NULL);
+    };
 }
 
 static void subscription_event(snd_seq_event_t *event) __attribute__((noinline));
@@ -600,7 +613,6 @@ static void process_event(snd_seq_event_t *event, uint8_t *running_status)
 static void *midi_thread_proc(void *arg)
 {
     snd_seq_event_t *event;
-    int err;
     uint8_t running_status;
 
     // try setting thread scheduler (only root)
@@ -609,13 +621,16 @@ static void *midi_thread_proc(void *arg)
     // set thread as initialized
     *(int *)arg = 1;
 
+    wait_for_midi_initialization();
+
     running_status = 0;
 
-    while(1)
+    while (midi_init_state > 0)
     {
-        err = snd_seq_event_input(midi_seq, &event);
-        if (err < 0)
+        if (snd_seq_event_input(midi_seq, &event) < 0)
+        {
             continue;
+        }
 
         process_event(event, &running_status);
     }
@@ -1072,30 +1087,14 @@ static int set_sw_params(void)
     return 0;
 }
 
-static int open_pcm_output(int can_retry) __attribute__((noinline));
-static int open_pcm_output(int can_retry)
+static int open_pcm_output(void) __attribute__((noinline));
+static int open_pcm_output(void)
 {
     int err;
-
-    retry_open_pcm = 0;
 
     err = snd_pcm_open(&midi_pcm, "default", SND_PCM_STREAM_PLAYBACK, 0);
     if (err < 0)
     {
-        if ((err == -ECONNREFUSED) && can_retry)
-        {
-            if (getuid() == 0)
-            {
-                // connection refused can occur if:
-                // - ALSA uses PulseAudio, and
-                // - program is running as root (sudo), and
-                // - PulseAudio is running per-user (not system-wide)
-                // to handle this case, retry opening pcm output after dropping privileges (and defining necessary environment variables)
-                retry_open_pcm = 1;
-                return 1;
-            }
-        }
-
         fprintf(stderr, "Error opening PCM device: %i\n%s\n", err, snd_strerror(err));
         return -1;
     }
@@ -1130,6 +1129,10 @@ static int drop_privileges(void)
     gid_t gid;
     const char *sudo_id;
     long long int llid;
+    const char *xdg_dir;
+    char buf[32];
+    struct stat statbuf;
+    struct passwd *passwdbuf;
 
     if (getuid() != 0)
     {
@@ -1181,32 +1184,26 @@ static int drop_privileges(void)
 
     chdir("/");
 
-    if (retry_open_pcm)
+    // define some environment variables
+
+    xdg_dir = getenv("XDG_RUNTIME_DIR");
+    if ((xdg_dir == NULL) || (*xdg_dir == 0))
     {
-        const char *xdg_dir;
-        char buf[32];
-        struct stat statbuf;
-        struct passwd *passwdbuf;
+        snprintf(buf, 32, "/run/user/%lli", (long long int)uid);
 
-        xdg_dir = getenv("XDG_RUNTIME_DIR");
-        if ((xdg_dir == NULL) || (*xdg_dir == 0))
+        if ((stat(buf, &statbuf) == 0) && ((statbuf.st_mode & S_IFMT) == S_IFDIR) && (statbuf.st_uid == uid))
         {
-            snprintf(buf, 32, "/run/user/%lli", (long long int)uid);
+            // if XDG_RUNTIME_DIR is not defined and directory /run/user/$USER exists then use it for XDG_RUNTIME_DIR
+            setenv("XDG_RUNTIME_DIR", buf, 1);
 
-            if ((stat(buf, &statbuf) == 0) && ((statbuf.st_mode & S_IFMT) == S_IFDIR) && (statbuf.st_uid == uid))
+            xdg_dir = getenv("XDG_CONFIG_HOME");
+            if ((xdg_dir == NULL) || (*xdg_dir == 0))
             {
-                // if XDG_RUNTIME_DIR is not defined and directory /run/user/$USER exists then use it for XDG_RUNTIME_DIR
-                setenv("XDG_RUNTIME_DIR", buf, 1);
-
-                xdg_dir = getenv("XDG_CONFIG_HOME");
-                if ((xdg_dir == NULL) || (*xdg_dir == 0))
+                passwdbuf = getpwuid(uid);
+                if (passwdbuf != NULL)
                 {
-                    passwdbuf = getpwuid(uid);
-                    if (passwdbuf != NULL)
-                    {
-                        // also if XDG_CONFIG_HOME is not defined then define it as user's home directory
-                        setenv("XDG_CONFIG_HOME", passwdbuf->pw_dir, 1);
-                    }
+                    // also if XDG_CONFIG_HOME is not defined then define it as user's home directory
+                    setenv("XDG_CONFIG_HOME", passwdbuf->pw_dir, 1);
                 }
             }
         }
@@ -1234,6 +1231,7 @@ static int start_thread(void)
 
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
+    midi_init_state = 0;
     initialized = 0;
     err = pthread_create(&midi_thread, &attr, &midi_thread_proc, (void *)&initialized);
     pthread_attr_destroy(&attr);
@@ -1295,6 +1293,8 @@ static void main_loop(void)
         output_subbuffer(i);
     }
 
+    midi_init_state = 1;
+
     while (1)
     {
         struct timespec req;
@@ -1351,41 +1351,32 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (open_midi_port() < 0)
+    if (start_thread() < 0)
     {
         stop_synth();
         return 4;
     }
 
-    if (open_pcm_output(1) < 0)
+    if (open_pcm_output() < 0)
     {
-        close_midi_port();
+        midi_init_state = -1;
         stop_synth();
         return 5;
     }
 
-    if (start_thread() < 0)
+    if (open_midi_port() < 0)
     {
+        midi_init_state = -1;
         close_pcm_output();
-        close_midi_port();
         stop_synth();
         return 6;
     }
 
-    if (retry_open_pcm)
-    {
-        if (open_pcm_output(0) < 0)
-        {
-            close_midi_port();
-            stop_synth();
-            return 7;
-        }
-    }
-
     main_loop();
 
-    close_pcm_output();
+    midi_init_state = -1;
     close_midi_port();
+    close_pcm_output();
     stop_synth();
     return 0;
 }
