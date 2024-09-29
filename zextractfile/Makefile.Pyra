@@ -1,0 +1,8 @@
+all: zextractfile
+
+zextractfile: zextractfile.c blast/blast.c blast/blast.h
+	gcc -O2 -Wall -DPYRA -pipe -march=armv7ve+simd -mcpu=cortex-a15 -mtune=cortex-a15 -mfpu=neon-vfpv4 -mfloat-abi=hard -mthumb -o zextractfile zextractfile.c blast/blast.c
+
+.PHONY: clean
+clean:
+	rm -f zextractfile
