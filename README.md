@@ -27,7 +27,9 @@ The projects consists of following parts:
   * Tools require the Casio SW-10 ROM file *ROMSXGM.BIN*.
 * **zextractfile**
   * Program to extract a file from PKWare Data Compression Library.
-  * The installer for Casio LANA Lite MIDI program (*LanaSw10.exe*) is a [LHA](https://en.wikipedia.org/wiki/LHA_(file_format\)) archive which can be unpacked using LHA or [7-Zip](https://www.7-zip.org/).
+  * The installer for Casio LANA Lite MIDI program (*LanaSw10.exe*) is a [LHA](https://en.wikipedia.org/wiki/LHA_%28file_format%29) archive which can be unpacked using LHA or [7-Zip](https://www.7-zip.org/).
   * The files for Casio SW-10 are located in file *LANA3.Z* (in *LanaSw10.exe*) which is a PKWare Data Compression Library.
   * Among other files, *LANA3.Z* contains *ROMSXGM.BIN* and *VLSG.VXD*.
   * To extract the ROM file from *LANA3.Z* use command: ```./zextractfile LANA3.Z ROMSXGM.BIN```
+* **documentation**
+  * MIDI implementation (unofficial)
