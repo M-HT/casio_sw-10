@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022 Roman Pauer
+ *  Copyright (C) 2022-2025 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -29,6 +29,15 @@
 #include <string.h>
 #include <ctype.h>
 #include "blast/blast.h"
+
+#if defined(__GNUC__)
+#define INLINE __inline__
+#elif defined(_MSC_VER)
+#define INLINE __inline
+#define strcasecmp _stricmp
+#else
+#define INLINE inline
+#endif
 
 
 typedef struct
@@ -59,12 +68,12 @@ static void usage(void)
     exit(1);
 }
 
-static inline uint16_t READ_LE_UINT16(const uint8_t *ptr)
+static INLINE uint16_t READ_LE_UINT16(const uint8_t *ptr)
 {
     return ptr[0] | (ptr[1] << 8);
 }
 
-static inline uint32_t READ_LE_UINT32(const uint8_t *ptr)
+static INLINE uint32_t READ_LE_UINT32(const uint8_t *ptr)
 {
     return ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
 }
@@ -282,7 +291,7 @@ unsigned blast_read(void *how, unsigned char **buf)
     static uint8_t buffer[4096];
 
     *buf = buffer;
-    return fread(buffer, 1, 4096, (FILE *)how);
+    return (unsigned)fread(buffer, 1, 4096, (FILE *)how);
 }
 
 int blast_write(void *how, unsigned char *buf, unsigned len)
@@ -302,8 +311,12 @@ static int extract_file(void)
     FILE *fout;
     int err;
 
+#if (defined(_MSC_VER) && __STDC_WANT_SECURE_LIB__) || (defined(__MINGW32__) && defined(_UCRT)) || (defined(__STDC_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__)
+    if (fopen_s(&fout, filename, "wb"))
+#else
     fout = fopen(filename, "wb");
     if (fout == NULL)
+#endif
     {
         return -1;
     }
@@ -346,8 +359,12 @@ int main(int argc, char *argv[])
         usage();
     }
 
+#if (defined(_MSC_VER) && __STDC_WANT_SECURE_LIB__) || (defined(__MINGW32__) && defined(_UCRT)) || (defined(__STDC_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__)
+    if (fopen_s(&farchive, arg_archive, "rb"))
+#else
     farchive = fopen(arg_archive, "rb");
     if (farchive == NULL)
+#endif
     {
         fprintf(stderr, "Unable to open archive\n");
         return 2;

@@ -1,0 +1,31 @@
+all: sw10_pcmconvert.exe
+
+all_dll: sw10_pcmconvert_dll.exe sw10_pcmcompare_dll.exe sw10_pcmcompare_dll_external.exe
+
+ifeq (x$(CC)y$(MSYSTEM)z, xccyCLANG64z)
+CC = clang
+else ifeq (x$(CC)y$(MSYSTEM)z, xccyCLANGARM64z)
+CC = clang
+else ifeq ($(CC), cc)
+CC = gcc
+endif
+
+sw10_pcmconvert.exe: sw10_pcmtools.c midi_loader.c midi_loader.h ../VLSG/VLSG.c ../VLSG/VLSG.h
+	$(CC) -m32 -O2 -Wall -DPCM_TOOL=PCM_CONVERT_INTERNAL -o sw10_pcmconvert.exe sw10_pcmtools.c midi_loader.c ../VLSG/VLSG.c -I../VLSG
+
+sw10_pcmconvert_dll.exe: sw10_pcmtools.c midi_loader.c midi_loader.h dll_loader.c dll_loader.h
+	$(CC) -m32 -O2 -Wall -DPCM_TOOL=PCM_CONVERT_DLL -o sw10_pcmconvert_dll.exe sw10_pcmtools.c midi_loader.c dll_loader.c
+
+sw10_pcmcompare_dll.exe: sw10_pcmtools.c midi_loader.c midi_loader.h dll_loader.c dll_loader.h ../VLSG/VLSG.c ../VLSG/VLSG.h
+	$(CC) -m32 -O2 -Wall -DPCM_TOOL=PCM_COMPARE_DLL_INTERNAL -o sw10_pcmcompare_dll.exe sw10_pcmtools.c midi_loader.c dll_loader.c ../VLSG/VLSG.c -I../VLSG
+
+sw10_pcmcompare_dll_external.exe: sw10_pcmtools.c midi_loader.c midi_loader.h dll_loader.c dll_loader.h
+	$(CC) -m32 -O2 -Wall -DPCM_TOOL=PCM_COMPARE_DLL_EXTERNAL -o sw10_pcmcompare_dll_external.exe sw10_pcmtools.c midi_loader.c dll_loader.c
+
+.PHONY: clean
+clean:
+ifdef MSYSTEM
+	rm -f sw10_pcmconvert.exe sw10_pcmconvert_dll.exe sw10_pcmcompare_dll.exe sw10_pcmcompare_dll_external.exe
+else
+	del sw10_pcmconvert.exe sw10_pcmconvert_dll.exe sw10_pcmcompare_dll.exe sw10_pcmcompare_dll_external.exe
+endif

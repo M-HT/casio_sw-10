@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022 Roman Pauer
+ *  Copyright (C) 2022-2025 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -328,11 +328,12 @@ static uint32_t CalcCheckSum(uint8_t *data, int data_length, int PECheckSum)
 
     for (i = 0; i < data_length / 4; i++)
     {
+        uint32_t dword;
+
         if (i == PECheckSum / 4)
         {
             continue;
         }
-        uint32_t dword;
         dword = *(uint32_t *) (data + i * 4);
         checksum = (checksum & 0xffffffff) + dword + (checksum >> 32);
         if (checksum > top)
@@ -382,11 +383,43 @@ static int ConvertVxD(const char *fname, const char *dllname)
     _IMAGE_NT_HEADERS pe_header;
     _IMAGE_SECTION_HEADER pe_section[3];
 
+    #define NUM_EXPORTS 8
+    static struct {
+        const char *function_name;
+        int32_t ordinal;
+        uint32_t offset;
+    } exported_functions[NUM_EXPORTS] = {
+        {"VLSG_GetVersion"      , 1, 0x00000000}, // filled later
+        {"VLSG_PlaybackStart"   , 2, 0x000345D0},
+        {"VLSG_PlaybackStop"    , 3, 0x00034680},
+        {"VLSG_SetParameter"    , 4, 0x00034480},
+        {"VLSG_AddMidiData"     , 5, 0x000346B0},
+        {"VLSG_FillOutputBuffer", 6, 0x000346D0},
+        {"VLSG_SetFunc_GetTime" , 7, 0x00000000}, // filled later
+        {"VLSG_GetName"         , 8, 0x00000000}, // filled later
+    };
+
+    struct {
+        uint32_t source_offset;
+        uint32_t target_offset;
+    } relocations[1000];
+    int num_relocations;
+
+    uint8_t *misc;
+    uint32_t misc_offset;
+
+    P_IMAGE_NT_HEADERS dll_pe_header;
+
+
     mz_file = NULL;
     dll_file = NULL;
 
+#if (defined(_MSC_VER) && __STDC_WANT_SECURE_LIB__) || (defined(__MINGW32__) && defined(_UCRT)) || (defined(__STDC_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__)
+    if (fopen_s(&f, fname, "rb")) return 1;
+#else
     f = fopen(fname, "rb");
     if (f == NULL) return 1;
+#endif
 
     // get file size
     retval = 2;
@@ -399,7 +432,7 @@ static int ConvertVxD(const char *fname, const char *dllname)
 
     // check if file is big enough to contain MZ EXE header
     retval = 3;
-    if (fsize <= sizeof(MZHeader)) goto FILE_ERROR;
+    if ((unsigned long)fsize <= sizeof(MZHeader)) goto FILE_ERROR;
 
     // allocate memory for the whole file
     retval = 4;
@@ -408,7 +441,7 @@ static int ConvertVxD(const char *fname, const char *dllname)
 
     // read the whole file
     retval = 5;
-    if (fread(mz_file, 1, fsize, f) != fsize) goto FILE_ERROR;
+    if (fread(mz_file, 1, fsize, f) != (unsigned long)fsize) goto FILE_ERROR;
 
     fclose(f);
     f = NULL;
@@ -426,7 +459,7 @@ static int ConvertVxD(const char *fname, const char *dllname)
 
     // check if file is big enough to contain LE EXE header
     retval = 13;
-    if (fsize <= mz_header->le_header_offset + sizeof(LEHeader)) goto MEM_ERROR;
+    if ((unsigned long)fsize <= mz_header->le_header_offset + sizeof(LEHeader)) goto MEM_ERROR;
 
 
     le_file = mz_file + mz_header->le_header_offset;
@@ -566,28 +599,6 @@ static int ConvertVxD(const char *fname, const char *dllname)
     memcpy(dll_file, mz_file, fsize);
 
 
-    #define NUM_EXPORTS 8
-    static struct {
-        const char *function_name;
-        int32_t ordinal;
-        uint32_t offset;
-    } exported_functions[NUM_EXPORTS] = {
-        {"VLSG_GetVersion"      , 1, 0x00000000}, // filled later
-        {"VLSG_PlaybackStart"   , 2, 0x000345D0},
-        {"VLSG_PlaybackStop"    , 3, 0x00034680},
-        {"VLSG_SetParameter"    , 4, 0x00034480},
-        {"VLSG_AddMidiData"     , 5, 0x000346B0},
-        {"VLSG_FillOutputBuffer", 6, 0x000346D0},
-        {"VLSG_SetFunc_GetTime" , 7, 0x00000000}, // filled later
-        {"VLSG_GetName"         , 8, 0x00000000}, // filled later
-    };
-
-    struct {
-        uint32_t source_offset;
-        uint32_t target_offset;
-    } relocations[1000];
-    int num_relocations;
-
     num_relocations = 0;
 
 
@@ -671,15 +682,16 @@ static int ConvertVxD(const char *fname, const char *dllname)
     fprintf(stderr, "headers size: %i\n", (int)(mz_header->le_header_offset + sizeof(_IMAGE_NT_HEADERS) + sizeof(pe_section)));
 
 
-    uint8_t *misc;
-    uint32_t misc_offset;
-
     misc_offset = 4096;
     misc = dll_file + 0x0a00;
 
     {
         P_IMAGE_EXPORT_DIRECTORY Directory;
         int exports_size, exports_index;
+
+        uint32_t *AddressTable, *NameLookupTable;
+        uint16_t *OrdinalLookupTable;
+        char *NameTable;
 
         Directory = (P_IMAGE_EXPORT_DIRECTORY)misc;
 
@@ -693,16 +705,16 @@ static int ConvertVxD(const char *fname, const char *dllname)
         Directory->AddressOfNameOrdinals = Directory->AddressOfNames + NUM_EXPORTS * sizeof(uint32_t);
         Directory->Name = Directory->AddressOfNameOrdinals + NUM_EXPORTS * sizeof(uint16_t);
 
-        uint32_t *AddressTable, *NameLookupTable;
-        uint16_t *OrdinalLookupTable;
-        char *NameTable;
-
         AddressTable = (uint32_t *)(misc + Directory->AddressOfFunctions - misc_offset);
         NameLookupTable = (uint32_t *)(misc + Directory->AddressOfNames - misc_offset);
         OrdinalLookupTable = (uint16_t *)(misc + Directory->AddressOfNameOrdinals - misc_offset);
         NameTable = (char *)(misc + Directory->Name - misc_offset);
 
+#if (defined(_MSC_VER) && __STDC_WANT_SECURE_LIB__)
+        strcpy_s(NameTable, RSIZE_MAX, "VLSG.DLL");
+#else
         strcpy(NameTable, "VLSG.DLL");
+#endif
         NameTable += strlen(NameTable) + 1;
 
         for (exports_index = 0; exports_index < NUM_EXPORTS; exports_index++)
@@ -716,13 +728,17 @@ static int ConvertVxD(const char *fname, const char *dllname)
         for (exports_index = 0; exports_index < NUM_EXPORTS; exports_index++)
         {
             OrdinalLookupTable[exports_index] = exported_functions[exports_index].ordinal - 1;
-            NameLookupTable[exports_index] = ((uintptr_t)NameTable - (uintptr_t)Directory) + misc_offset;
+            NameLookupTable[exports_index] = (uint32_t)(((uintptr_t)NameTable - (uintptr_t)Directory) + misc_offset);
 
+#if (defined(_MSC_VER) && __STDC_WANT_SECURE_LIB__)
+            strcpy_s(NameTable, RSIZE_MAX, exported_functions[exports_index].function_name);
+#else
             strcpy(NameTable, exported_functions[exports_index].function_name);
+#endif
             NameTable += strlen(NameTable) + 1;
         }
 
-        exports_size = ((uintptr_t)NameTable - (uintptr_t)Directory);
+        exports_size = (int)((uintptr_t)NameTable - (uintptr_t)Directory);
 
         fprintf(stderr, "exports size: %i\n", exports_size);
 
@@ -887,7 +903,7 @@ static int ConvertVxD(const char *fname, const char *dllname)
             {
                 if (block_start != NULL)
                 {
-                    *(uint32_t *)(block_start + 4) = relocs - block_start;
+                    *(uint32_t *)(block_start + 4) = (uint32_t)(relocs - block_start);
                 }
 
                 block_start = relocs;
@@ -935,9 +951,9 @@ static int ConvertVxD(const char *fname, const char *dllname)
             }
         }
 
-        *(uint32_t *)(block_start + 4) = relocs - block_start;
+        *(uint32_t *)(block_start + 4) = (uint32_t)(relocs - block_start);
 
-        relocations_size = relocs - misc;
+        relocations_size = (int)(relocs - misc);
 
         fprintf(stderr, "relocations size: %i\n", relocations_size);
 
@@ -977,14 +993,17 @@ static int ConvertVxD(const char *fname, const char *dllname)
     memcpy(dll_file + mz_header->le_header_offset, &pe_header, sizeof(_IMAGE_NT_HEADERS));
     memcpy(dll_file + mz_header->le_header_offset + sizeof(_IMAGE_NT_HEADERS), pe_section, sizeof(pe_section));
 
-    P_IMAGE_NT_HEADERS dll_pe_header;
     dll_pe_header = (P_IMAGE_NT_HEADERS) (dll_file + mz_header->le_header_offset);
     dll_pe_header->OptionalHeader.CheckSum = CalcCheckSum(dll_file, fsize, mz_header->le_header_offset + offsetof(_IMAGE_NT_HEADERS, OptionalHeader.CheckSum));
 
 
     retval = 42;
+#if (defined(_MSC_VER) && __STDC_WANT_SECURE_LIB__) || (defined(__MINGW32__) && defined(_UCRT)) || (defined(__STDC_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__)
+    if (fopen_s(&f, dllname, "wb")) goto MEM_ERROR;
+#else
     f = fopen(dllname, "wb");
     if (f == NULL) goto MEM_ERROR;
+#endif
 
     fwrite(dll_file, 1, fsize, f);
     fclose(f);

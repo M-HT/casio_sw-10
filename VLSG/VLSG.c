@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022-2024 Roman Pauer
+ *  Copyright (C) 2022-2025 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -25,6 +25,14 @@
 #include <stddef.h>
 #include <string.h>
 #include "VLSG.h"
+
+#if defined(__GNUC__)
+#define INLINE __inline__
+#elif defined(_MSC_VER)
+#define INLINE __inline
+#else
+#define INLINE inline
+#endif
 
 
 #define MIDI_CHANNELS 16
@@ -126,7 +134,7 @@ static uint32_t dword_C0000008;
 static int32_t output_size_para;
 static uint32_t system_time_2;
 static uint8_t event_data[32];
-static uint32_t recent_voice_index;
+static int32_t recent_voice_index;
 static struc_6 *stru6_ptr;
 static Channel_Data *channel_data_ptr;
 static uint32_t event_type;
@@ -436,7 +444,7 @@ static uint16_t sub_C0037400(void);
 static int16_t sub_C0037420(uint32_t arg_0);
 
 
-static inline uint16_t READ_LE_UINT16(const uint8_t *ptr)
+static INLINE uint16_t READ_LE_UINT16(const uint8_t *ptr)
 {
     return ptr[0] | (ptr[1] << 8);
 }
@@ -505,7 +513,7 @@ int32_t VLSG_SetParameter(uint32_t type, uintptr_t value)
             return 1;
 
         case PARAMETER_Effect:
-            effect_param_value = value;
+            effect_param_value = (uint32_t)value;
             DisableReverb();
             if (effect_param_value == 0x20)
             {
@@ -1167,7 +1175,7 @@ static void ReduceActiveVoices(int32_t maximum_voices)
             }
         } while (index3 != recent_voice_index);
 
-        while (1)
+        for (;;)
         {
             if (voice_data[index2].note_number != 255)
             {
@@ -1225,7 +1233,7 @@ static void ProcessMidiData(void)
 {
     uint8_t midi_value;
 
-    while (1)
+    for (;;)
     {
         midi_value = GetValueFromMidiDataBuffer();
         if (midi_value == 0xFF) break;

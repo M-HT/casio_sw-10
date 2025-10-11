@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022-2024 Roman Pauer
+ *  Copyright (C) 2022-2025 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -831,8 +831,10 @@ static int load_rom_file(void)
         }
     }
 
+#if defined(MAP_LOCKED) && (MAP_LOCKED != 0)
     rom_address = mmap(NULL, ROMSIZE, PROT_READ, MAP_PRIVATE | MAP_LOCKED, rom_fd, 0);
     if (rom_address == MAP_FAILED)
+#endif
     {
         rom_address = mmap(NULL, ROMSIZE, PROT_READ, MAP_PRIVATE, rom_fd, 0);
     }

@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022 Roman Pauer
+ *  Copyright (C) 2022-2025 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -86,6 +86,14 @@ enum ParameterType
 
 #endif
 
+#if defined(__GNUC__)
+#define INLINE __inline__
+#elif defined(_MSC_VER)
+#define INLINE __inline
+#else
+#define INLINE inline
+#endif
+
 
 static const char *arg_input = NULL;
 static const char *arg_output = NULL;
@@ -116,13 +124,13 @@ static uint8_t *midi_buf2[16];
 static unsigned int bytes_per_call, samples_per_call;
 
 
-static inline void WRITE_LE_UINT16(uint8_t *ptr, uint16_t value)
+static INLINE void WRITE_LE_UINT16(uint8_t *ptr, uint16_t value)
 {
     ptr[0] = value & 0xff;
     ptr[1] = (value >> 8) & 0xff;
 }
 
-static inline void WRITE_LE_UINT32(uint8_t *ptr, uint32_t value)
+static INLINE void WRITE_LE_UINT32(uint8_t *ptr, uint32_t value)
 {
     ptr[0] = value & 0xff;
     ptr[1] = (value >> 8) & 0xff;
@@ -141,8 +149,12 @@ static void *load_rom_file(const char *romname)
     FILE *f;
     void *mem;
 
+#if (defined(_MSC_VER) && __STDC_WANT_SECURE_LIB__) || (defined(__MINGW32__) && defined(_UCRT)) || (defined(__STDC_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__)
+    if (fopen_s(&f, romname, "rb"))
+#else
     f = fopen(romname, "rb");
     if (f == NULL)
+#endif
     {
 #ifndef _WIN32
         char *romnamecopy, *slash, *filename;
@@ -200,14 +212,18 @@ static void *load_rom_file(const char *romname)
             return NULL;
         }
 
+#if (defined(_MSC_VER) && __STDC_WANT_SECURE_LIB__) || (defined(__MINGW32__) && defined(_UCRT)) || (defined(__STDC_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__)
+        if (fopen_s(&f, romnamecopy, "rb"))
+#else
         f = fopen(romnamecopy, "rb");
-
-        free(romnamecopy);
-
         if (f == NULL)
+#endif
         {
+            free(romnamecopy);
             return NULL;
         }
+
+        free(romnamecopy);
 #else
         return NULL;
 #endif
@@ -562,8 +578,12 @@ int main(int argc, char *argv[])
             uint8_t wav_header[44];
             uint8_t *header_ptr;
 
+#if (defined(_MSC_VER) && __STDC_WANT_SECURE_LIB__) || (defined(__MINGW32__) && defined(_UCRT)) || (defined(__STDC_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__)
+            if (fopen_s(&fout, arg_output, "wb"))
+#else
             fout = fopen(arg_output, "wb");
             if (fout == NULL)
+#endif
             {
                 free_midi_data(midi_events);
                 free(rom_address);
@@ -617,7 +637,15 @@ int main(int argc, char *argv[])
 
         char command[8192];
 
-        sprintf(command, "%s -i \"%s\" -d \"%s\" -r \"%s\" -s -f %i -p %i -e %i", arg_exttool, arg_input, arg_dll, arg_rom, frequency, polyphony, reverb_effect);
+#if (defined(_MSC_VER) && __STDC_WANT_SECURE_LIB__) || (defined(__MINGW32__) && defined(_UCRT)) || (defined(__STDC_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__)
+        if (sprintf_s(command, sizeof(command), "%s -i \"%s\" -d \"%s\" -r \"%s\" -s -f %i -p %i -e %i", arg_exttool, arg_input, arg_dll, arg_rom, frequency, polyphony, reverb_effect) <= 0)
+#else
+        if (sprintf(command, "%s -i \"%s\" -d \"%s\" -r \"%s\" -s -f %i -p %i -e %i", arg_exttool, arg_input, arg_dll, arg_rom, frequency, polyphony, reverb_effect) <= 0)
+#endif
+        {
+            fprintf(stderr, "error running external convert tool\n");
+            return 7;
+        }
 
 #ifdef _WIN32
         fpipe = _popen(command, "rb");
@@ -760,7 +788,11 @@ int main(int argc, char *argv[])
 #endif
 
 #if PCM_TOOL == PCM_COMPARE_DLL_EXTERNAL
+#ifdef _WIN32
+        _pclose(fpipe);
+#else
         pclose(fpipe);
+#endif
 #endif
     }
 

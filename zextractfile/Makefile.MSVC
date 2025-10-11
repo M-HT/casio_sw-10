@@ -1,0 +1,8 @@
+all: zextractfile.exe
+
+zextractfile.exe: zextractfile.c blast\blast.c blast\blast.h
+	cl /O2 /W3 /nologo /Fezextractfile.exe zextractfile.c blast\blast.c
+
+.PHONY: clean
+clean:
+	del zextractfile.exe blast.obj zextractfile.obj

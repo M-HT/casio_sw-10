@@ -1,8 +1,20 @@
 all: conv2dll.exe
 
+ifeq (x$(CC)y$(MSYSTEM)z, xccyCLANG64z)
+CC = clang
+else ifeq (x$(CC)y$(MSYSTEM)z, xccyCLANGARM64z)
+CC = clang
+else ifeq ($(CC), cc)
+CC = gcc
+endif
+
 conv2dll.exe: conv2dll.c
-	gcc -O2 -Wall -o conv2dll.exe conv2dll.c
+	$(CC) -O2 -Wall -o conv2dll.exe conv2dll.c
 
 .PHONY: clean
 clean:
+ifdef MSYSTEM
 	rm -f conv2dll.exe
+else
+	del conv2dll.exe
+endif

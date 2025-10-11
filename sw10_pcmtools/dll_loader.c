@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022 Roman Pauer
+ *  Copyright (C) 2022-2025 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -136,14 +136,14 @@ void *load_vlsg_dll(const char *dllname, VLSG_Functions *functions)
 #endif
     }
 
-    functions->VLSG_GetVersion = (void *) get_proc_address(hVLSG, "VLSG_GetVersion");
-    functions->VLSG_PlaybackStart = (void *) get_proc_address(hVLSG, "VLSG_PlaybackStart");
-    functions->VLSG_PlaybackStop = (void *) get_proc_address(hVLSG, "VLSG_PlaybackStop");
-    functions->VLSG_SetParameter = (void *) get_proc_address(hVLSG, "VLSG_SetParameter");
-    functions->VLSG_AddMidiData = (void *) get_proc_address(hVLSG, "VLSG_AddMidiData");
-    functions->VLSG_FillOutputBuffer = (void *) get_proc_address(hVLSG, "VLSG_FillOutputBuffer");
-    functions->VLSG_SetFunc_GetTime = (void *) get_proc_address(hVLSG, "VLSG_SetFunc_GetTime");
-    functions->VLSG_GetName = (void *) get_proc_address(hVLSG, "VLSG_GetName");
+    functions->VLSG_GetVersion = (uint32_t (*)(void)) get_proc_address(hVLSG, "VLSG_GetVersion");
+    functions->VLSG_PlaybackStart = (int (*)(void)) get_proc_address(hVLSG, "VLSG_PlaybackStart");
+    functions->VLSG_PlaybackStop = (void (*)(void)) get_proc_address(hVLSG, "VLSG_PlaybackStop");
+    functions->VLSG_SetParameter = (int (*)(uint32_t, uint32_t)) get_proc_address(hVLSG, "VLSG_SetParameter");
+    functions->VLSG_AddMidiData = (void (*)(const void *, uint32_t)) get_proc_address(hVLSG, "VLSG_AddMidiData");
+    functions->VLSG_FillOutputBuffer = (int32_t (*)(uint32_t)) get_proc_address(hVLSG, "VLSG_FillOutputBuffer");
+    functions->VLSG_SetFunc_GetTime = (void (*)(uint32_t (*)(void))) get_proc_address(hVLSG, "VLSG_SetFunc_GetTime");
+    functions->VLSG_GetName = (const char *(*)(void)) get_proc_address(hVLSG, "VLSG_GetName");
 
     if ((functions->VLSG_GetVersion == NULL) ||
         (functions->VLSG_PlaybackStart == NULL) ||
@@ -164,6 +164,6 @@ void *load_vlsg_dll(const char *dllname, VLSG_Functions *functions)
 
 void free_vlsg_dll(void *dll)
 {
-    free_dll(dll);
+    free_dll((handle)dll);
 }
 

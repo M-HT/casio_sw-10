@@ -1,8 +1,20 @@
 all: zextractfile.exe
 
+ifeq (x$(CC)y$(MSYSTEM)z, xccyCLANG64z)
+CC = clang
+else ifeq (x$(CC)y$(MSYSTEM)z, xccyCLANGARM64z)
+CC = clang
+else ifeq ($(CC), cc)
+CC = gcc
+endif
+
 zextractfile.exe: zextractfile.c blast/blast.c blast/blast.h
-	gcc -O2 -Wall -o zextractfile.exe zextractfile.c blast/blast.c
+	$(CC) -O2 -Wall -o zextractfile.exe zextractfile.c blast/blast.c
 
 .PHONY: clean
 clean:
+ifdef MSYSTEM
 	rm -f zextractfile.exe
+else
+	del zextractfile.exe
+endif

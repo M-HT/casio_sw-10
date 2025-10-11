@@ -1,0 +1,19 @@
+all: sw10_pcmconvert.exe
+
+all_dll: sw10_pcmconvert_dll.exe sw10_pcmcompare_dll.exe sw10_pcmcompare_dll_external.exe
+
+sw10_pcmconvert.exe: sw10_pcmtools.c midi_loader.c midi_loader.h ..\VLSG\VLSG.c ..\VLSG\VLSG.h
+	cl /O2 /W3 /nologo /DPCM_TOOL=PCM_CONVERT_INTERNAL /Fesw10_pcmconvert.exe sw10_pcmtools.c midi_loader.c ..\VLSG\VLSG.c /I..\VLSG
+
+sw10_pcmconvert_dll.exe: sw10_pcmtools.c midi_loader.c midi_loader.h dll_loader.c dll_loader.h
+	cl /O2 /W3 /nologo /DPCM_TOOL=PCM_CONVERT_DLL /Fesw10_pcmconvert_dll.exe sw10_pcmtools.c midi_loader.c dll_loader.c
+
+sw10_pcmcompare_dll.exe: sw10_pcmtools.c midi_loader.c midi_loader.h dll_loader.c dll_loader.h ..\VLSG\VLSG.c ..\VLSG\VLSG.h
+	cl /O2 /W3 /nologo /DPCM_TOOL=PCM_COMPARE_DLL_INTERNAL /Fesw10_pcmcompare_dll.exe sw10_pcmtools.c midi_loader.c dll_loader.c ..\VLSG\VLSG.c /I..\VLSG
+
+sw10_pcmcompare_dll_external.exe: sw10_pcmtools.c midi_loader.c midi_loader.h dll_loader.c dll_loader.h
+	cl /O2 /W3 /nologo /DPCM_TOOL=PCM_COMPARE_DLL_EXTERNAL /Fesw10_pcmcompare_dll_external.exe sw10_pcmtools.c midi_loader.c dll_loader.c
+
+.PHONY: clean
+clean:
+	del sw10_pcmconvert.exe sw10_pcmconvert_dll.exe sw10_pcmcompare_dll.exe sw10_pcmcompare_dll_external.exe dll_loader.obj midi_loader.obj sw10_pcmtools.obj VLSG.obj

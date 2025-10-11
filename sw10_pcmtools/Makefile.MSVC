@@ -1,0 +1,8 @@
+all: sw10_pcmconvert.exe
+
+sw10_pcmconvert.exe: sw10_pcmtools.c midi_loader.c midi_loader.h ..\VLSG\VLSG.c ..\VLSG\VLSG.h
+	cl /MD /O2 /W3 /nologo /DPCM_TOOL=PCM_CONVERT_INTERNAL /Fesw10_pcmconvert.exe sw10_pcmtools.c midi_loader.c ..\VLSG\VLSG.c /I..\VLSG
+
+.PHONY: clean
+clean:
+	del sw10_pcmconvert.exe midi_loader.obj sw10_pcmtools.obj VLSG.obj

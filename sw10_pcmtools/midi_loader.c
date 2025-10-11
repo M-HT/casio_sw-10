@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022-2024 Roman Pauer
+ *  Copyright (C) 2022-2025 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -54,7 +54,7 @@
 typedef struct {
     const uint8_t *ptr;
     unsigned int len, delta;
-    uint8_t prev_event;
+    uint8_t prev_event, pad[3];
     int eot;
 } midi_track_info;
 
@@ -201,11 +201,11 @@ static unsigned int read_varlen(midi_track_info *track)
 
 static int preprocessmidi(const uint8_t *midi, unsigned int midilen, unsigned int *timediv, midi_event_info **dataptr)
 {
-    unsigned int number_of_tracks, time_division, index, varlen;
+    unsigned int number_of_tracks, time_division, index, lasttracknum, varlen;
     midi_track_info *tracks, *curtrack;
     unsigned int num_allocated, num_events, last_tick;
     midi_event_info *events;
-    int retval, lasttracknum, eventextralen;
+    int retval, eventextralen;
     midi_event_info event;
     unsigned int tempo, tempo_tick;
     uint32_t tempo_time;
@@ -237,16 +237,16 @@ static int preprocessmidi(const uint8_t *midi, unsigned int midilen, unsigned in
     events[0].sysex = NULL;
     events[0].time = 0;
 
-    lasttracknum = -1;
+    lasttracknum = 0;
     last_tick = 0;
     tempo = 500000; // 500000 MPQN = 120 BPM
     tempo_tick = 0;
     tempo_time = 0;
-    while (1)
+    for (;;)
     {
         curtrack = NULL;
 
-        if ((lasttracknum >= 0) && (!tracks[lasttracknum].eot) && (tracks[lasttracknum].delta == 0))
+        if ((lasttracknum < number_of_tracks) && (!tracks[lasttracknum].eot) && (tracks[lasttracknum].delta == 0))
         {
             curtrack = &(tracks[lasttracknum]);
         }
@@ -283,7 +283,7 @@ static int preprocessmidi(const uint8_t *midi, unsigned int midilen, unsigned in
         event.sysex = NULL;
 
         // calculate event time in miliseconds
-        event.time = ( ((event.tick - tempo_tick) * (uint64_t) tempo) / (time_division * 1000) ) + tempo_time;
+        event.time = (uint32_t)( ((event.tick - tempo_tick) * (uint64_t) tempo) / (time_division * 1000) ) + tempo_time;
 
         if (event.time > events[0].time) events[0].time = event.time;
 
@@ -405,7 +405,7 @@ static int preprocessmidi(const uint8_t *midi, unsigned int midilen, unsigned in
                         {
                             if (event.len <= 8)
                             {
-                                if ((curtrack->prev_event == 0xf0))
+                                if (curtrack->prev_event == 0xf0)
                                 {
                                     event.data[0] = 0xf0;
                                     memcpy(&(event.data[1]), curtrack->ptr, varlen);
@@ -424,7 +424,7 @@ static int preprocessmidi(const uint8_t *midi, unsigned int midilen, unsigned in
                                     goto midi_error_2;
                                 }
 
-                                if ((curtrack->prev_event == 0xf0))
+                                if (curtrack->prev_event == 0xf0)
                                 {
                                     event.sysex[0] = 0xf0;
                                     memcpy(event.sysex + 1, curtrack->ptr, varlen);
@@ -438,7 +438,7 @@ static int preprocessmidi(const uint8_t *midi, unsigned int midilen, unsigned in
                             curtrack->ptr += varlen;
                             curtrack->len -= varlen;
 
-                            eventextralen = 1 + curtrack->ptr - startevent;
+                            eventextralen = (int)(1 + curtrack->ptr - startevent);
                         }
                     }
                     else
@@ -513,8 +513,12 @@ int load_midi_file(const char *filename, unsigned int *timediv, midi_event_info 
     uint8_t *midi;
     int retval;
 
+#if (defined(_MSC_VER) && __STDC_WANT_SECURE_LIB__) || (defined(__MINGW32__) && defined(_UCRT)) || (defined(__STDC_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__)
+    if (fopen_s(&f, filename, "rb")) return 21;
+#else
     f = fopen(filename, "rb");
     if (f == NULL) return 21;
+#endif
 
     midi = NULL;
 
@@ -534,7 +538,7 @@ int load_midi_file(const char *filename, unsigned int *timediv, midi_event_info 
 
     // read the whole file
     retval = 25;
-    if (fread(midi, 1, fsize, f) != fsize) goto FILE_ERROR;
+    if (fread(midi, 1, fsize, f) != (unsigned long)fsize) goto FILE_ERROR;
 
     fclose(f);
     f = NULL;

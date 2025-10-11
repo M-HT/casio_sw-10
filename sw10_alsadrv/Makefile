@@ -1,7 +1,7 @@
 all: sw10_alsadrv
 
 sw10_alsadrv: sw10_alsadrv.c ../VLSG/VLSG.c ../VLSG/VLSG.h
-	gcc -O2 -Wall -o sw10_alsadrv sw10_alsadrv.c ../VLSG/VLSG.c -I../VLSG -lasound -lpthread
+	$(CC) -O2 -Wall -o sw10_alsadrv sw10_alsadrv.c ../VLSG/VLSG.c -I../VLSG -lasound -lpthread
 
 .PHONY: clean
 clean:

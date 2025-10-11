@@ -1,0 +1,8 @@
+all: conv2dll.exe
+
+conv2dll.exe: conv2dll.c
+	cl /O2 /W3 /nologo /Feconv2dll.exe conv2dll.c
+
+.PHONY: clean
+clean:
+	del conv2dll.exe conv2dll.obj

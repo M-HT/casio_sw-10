@@ -1,7 +1,7 @@
 all: zextractfile
 
 zextractfile: zextractfile.c blast/blast.c blast/blast.h
-	gcc -O2 -Wall -o zextractfile zextractfile.c blast/blast.c
+	$(CC) -O2 -Wall -o zextractfile zextractfile.c blast/blast.c
 
 .PHONY: clean
 clean:
