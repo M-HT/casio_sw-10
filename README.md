@@ -21,6 +21,9 @@ The projects consists of following parts:
 * **sw10_alsadrv**
   * Linux daemon which provides [ALSA](https://en.wikipedia.org/wiki/Advanced_Linux_Sound_Architecture) MIDI sequencer interface using *VLSG*.
   * It requires the Casio SW-10 ROM file *ROMSXGM.BIN*.
+* **sw10_coredrv**
+  * MacOS daemon which provides Core MIDI synthesizer using *VLSG*.
+  * It requires the Casio SW-10 ROM file *ROMSXGM.BIN*.
 * **sw10_pcmtools**
   * Tools to convert [Standard MIDI File](https://www.midi.org/specifications-old/item/standard-midi-files-smf) to *PCM* (*WAV* or *RAW*) using *VLSG* or *VLSG.DLL*.
   * Also tools to compare the output of conversion tools - useful to verify the output of decompiled version against the original.
