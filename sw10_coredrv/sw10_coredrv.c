@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022-2025 Roman Pauer
+ *  Copyright (C) 2022-2026 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -1458,19 +1458,30 @@ static int open_midi_endpoint(void)
 
     printf("MIDI destination is %s\n", MIDI_NAME);
 
-    if (MIDIObjectSetIntegerProperty(midi_client, kMIDIPropertyUniqueID, midi_name_crc32) == noErr)
+    if (MIDIObjectSetIntegerProperty(midi_endpoint, kMIDIPropertyUniqueID, midi_name_crc32) == noErr)
     {
         printf("Unique ID is %i\n", (int)(int32_t)midi_name_crc32);
     }
     else
     {
+        int32_t unique_id;
+
         for (int i = 0; i < 32; i++)
         {
-            int32_t unique_id = midi_name_crc32 ^ (1 << i);
-            if (MIDIObjectSetIntegerProperty(midi_client, kMIDIPropertyUniqueID, unique_id) == noErr)
+            unique_id = midi_name_crc32 ^ (1 << i);
+            err = MIDIObjectSetIntegerProperty(midi_endpoint, kMIDIPropertyUniqueID, unique_id);
+            if (err == noErr)
             {
                 printf("Unique ID is %i\n", (int)unique_id);
                 break;
+            }
+        }
+
+        if (err != noErr)
+        {
+            if (MIDIObjectGetIntegerProperty(midi_endpoint, kMIDIPropertyUniqueID, &unique_id) == noErr)
+            {
+                printf("Unique ID is %i\n", (int)unique_id);
             }
         }
     }
