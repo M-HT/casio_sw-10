@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022-2025 Roman Pauer
+ *  Copyright (C) 2022-2026 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -23,7 +23,9 @@
  */
 
 #define _FILE_OFFSET_BITS 64
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -415,10 +417,8 @@ static void process_event(snd_seq_event_t *event, uint8_t *running_status)
             break;
 
         case SND_SEQ_EVENT_SYSEX:
-            length = event->data.ext.len;
-
             *running_status = 0;
-            write_event(event->data.ext.ptr, length);
+            write_event((uint8_t *)event->data.ext.ptr, event->data.ext.len);
 
 #ifdef PRINT_EVENTS
             printf("SysEx (fragment) of size %d\n", event->data.ext.len);
@@ -832,11 +832,11 @@ static int load_rom_file(void)
     }
 
 #if defined(MAP_LOCKED) && (MAP_LOCKED != 0)
-    rom_address = mmap(NULL, ROMSIZE, PROT_READ, MAP_PRIVATE | MAP_LOCKED, rom_fd, 0);
+    rom_address = (uint8_t *)mmap(NULL, ROMSIZE, PROT_READ, MAP_PRIVATE | MAP_LOCKED, rom_fd, 0);
     if (rom_address == MAP_FAILED)
 #endif
     {
-        rom_address = mmap(NULL, ROMSIZE, PROT_READ, MAP_PRIVATE, rom_fd, 0);
+        rom_address = (uint8_t *)mmap(NULL, ROMSIZE, PROT_READ, MAP_PRIVATE, rom_fd, 0);
     }
 
     close(rom_fd);
@@ -1202,7 +1202,7 @@ static int drop_privileges(void)
 
     printf("Dropped root privileges\n");
 
-    chdir("/");
+    if (0 != chdir("/")) {}
 
     // define some environment variables
 
@@ -1240,7 +1240,7 @@ static int start_thread(void)
     volatile int initialized;
 
     // try to increase priority (only root)
-    nice(-20);
+    if (-1 == nice(-20)) {}
 
     err = pthread_attr_init(&attr);
     if (err != 0)

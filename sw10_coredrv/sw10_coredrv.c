@@ -893,12 +893,16 @@ static void midi_receive_proc(const MIDIEventList *evtlist, void * __nullable sr
                     if (((packet->words[index2] >> 24) & 0x0f) == 0) // group
                     {
                         length = (packet->words[index2] >> 16) & 0x0f;
-                        data[1] = (packet->words[index2] >> 8) & 0x7f;
-                        data[2] = packet->words[index2] & 0x7f;
-                        data[3] = (packet->words[index2 + 1] >> 24) & 0x7f;
-                        data[4] = (packet->words[index2 + 1] >> 16) & 0x7f;
-                        data[5] = (packet->words[index2 + 1] >> 8) & 0x7f;
-                        data[6] = packet->words[index2 + 1] & 0x7f;
+                        if (length <= 6)
+                        {
+                            data[1] = (packet->words[index2] >> 8) & 0x7f;
+                            data[2] = packet->words[index2] & 0x7f;
+                            data[3] = (packet->words[index2 + 1] >> 24) & 0x7f;
+                            data[4] = (packet->words[index2 + 1] >> 16) & 0x7f;
+                            data[5] = (packet->words[index2 + 1] >> 8) & 0x7f;
+                            data[6] = packet->words[index2 + 1] & 0x7f;
+                        }
+                        else length = 0;
 
                         running_status = 0;
                         if (((packet->words[index2] >> 20) & 0x0f) == kMIDISysExStatusComplete || ((packet->words[index2] >> 20) & 0x0f) == kMIDISysExStatusEnd)
@@ -1206,7 +1210,7 @@ static int load_rom_file(void)
         }
     }
 
-    rom_address = mmap(NULL, ROMSIZE, PROT_READ, MAP_PRIVATE, rom_fd, 0);
+    rom_address = (uint8_t *)mmap(NULL, ROMSIZE, PROT_READ, MAP_PRIVATE, rom_fd, 0);
 
     close(rom_fd);
 
