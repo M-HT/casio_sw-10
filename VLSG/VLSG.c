@@ -42,17 +42,17 @@
 
 typedef struct
 {
-    uint16_t program_change;
-    int16_t modulation;
-    int16_t channel_pressure;
-    int16_t expression;
-    int16_t volume;
+    uint8_t program_change;
+    uint8_t modulation;
+    uint8_t channel_pressure;
+    uint8_t expression;
+    uint8_t volume;
     int16_t pitch_bend;
-    int16_t pan;
-    uint16_t chflags;
-    int16_t pitch_bend_sense;
+    int8_t pan;
+    uint8_t chflags;
+    uint16_t pitch_bend_sense;
     int16_t fine_tune;
-    int16_t coarse_tune;
+    int8_t coarse_tune;
     uint8_t parameter_number_MSB;
     uint8_t parameter_number_LSB;
     uint8_t data_entry_MSB;
@@ -119,9 +119,9 @@ enum Voice_Flags
 
 enum Channel_Flags
 {
-    CHFLAG_Sostenuto  = 0x2000,
-    CHFLAG_Soft       = 0x4000,
-    CHFLAG_Sustain    = 0x8000,
+    CHFLAG_Sostenuto  = 0x20,
+    CHFLAG_Soft       = 0x40,
+    CHFLAG_Sustain    = 0x80,
 };
 
 
@@ -159,8 +159,6 @@ static int32_t maximum_polyphony_new_value;
 static uint32_t system_time_1;
 static int32_t maximum_polyphony;
 static uint8_t *output_data_ptr;
-static uint32_t output_buffer_size_samples;
-static uint32_t output_buffer_size_bytes;
 static uint32_t effect_param_value;
 
 static const uint32_t dword_C0032188[112+104+40] =
@@ -254,19 +252,8 @@ static const int32_t dword_C0032988[38+34+1] =
 // zero terminator
     0
 };
-static const int32_t dword_C0032AA8[12][128] =
+static const int32_t dword_C0032AA8[11][128] =
 {
-    {
-          0,   1,   1,   1,   2,   2,   2,   2,   3,   3,   4,   5,   6,   7,   8,   9,
-         11,  13,  14,  16,  18,  20,  22,  24,  26,  28,  30,  32,  34,  36,  39,  41,
-         43,  45,  47,  49,  51,  52,  54,  55,  57,  59,  60,  61,  63,  64,  66,  67,
-         68,  69,  70,  72,  73,  74,  76,  77,  78,  79,  81,  82,  83,  84,  85,  86,
-         87,  87,  88,  89,  90,  91,  91,  92,  93,  93,  94,  95,  95,  96,  97,  97,
-         98,  99, 100, 100, 101, 102, 102, 103, 104, 104, 105, 106, 106, 107, 108, 108,
-        109, 110, 111, 111, 112, 113, 113, 114, 115, 115, 116, 117, 117, 118, 119, 119,
-        120, 121, 122, 122, 123, 123, 124, 124, 124, 125, 125, 125, 126, 126, 126, 127
-    },
-    // dword_C0032CA8[11][128]
     {
           0,   1,   1,   1,   2,   2,   2,   2,   3,   3,   4,   5,   6,   7,   8,   9,
          11,  13,  14,  16,  18,  20,  22,  24,  26,  28,  30,  32,  34,  36,  39,  41,
@@ -452,7 +439,6 @@ static INLINE uint16_t READ_LE_UINT16(const uint8_t *ptr)
 
 int32_t VLSG_SetParameter(uint32_t type, uintptr_t value)
 {
-    uint32_t buffer_size;
     int32_t polyphony;
 
     switch (type)
@@ -470,43 +456,30 @@ int32_t VLSG_SetParameter(uint32_t type, uintptr_t value)
             {
                 output_frequency = 11025;
                 output_size_para = 64;
-                buffer_size = 4096;
             }
             else if (value == 2)
             {
                 output_frequency = 44100;
                 output_size_para = 256;
-                buffer_size = 16384;
             }
             else
             {
                 output_frequency = 22050;
                 output_size_para = 128;
-                buffer_size = 8192;
             }
 
-            output_buffer_size_samples = buffer_size;
-            output_buffer_size_bytes = 4 * buffer_size;
             InitializeReverbBuffer();
             return 1;
 
         case PARAMETER_Polyphony:
             if (value == 0x11)
-            {
                 polyphony = 32;
-            }
             else if (value == 0x12)
-            {
                 polyphony = 48;
-            }
             else if (value == 0x13)
-            {
                 polyphony = 64;
-            }
             else
-            {
                 polyphony = 24;
-            }
 
             maximum_polyphony = polyphony;
             maximum_polyphony_new_value = polyphony;
@@ -607,9 +580,7 @@ int32_t VLSG_PlaybackStop(void)
 void VLSG_AddMidiData(const uint8_t *ptr, uint32_t len)
 {
     for (; len != 0; len--)
-    {
         AddByteToMidiDataBuffer(*ptr++);
-    }
 }
 
 int32_t VLSG_FillOutputBuffer(uint32_t output_buffer_counter)
@@ -645,13 +616,9 @@ int32_t VLSG_FillOutputBuffer(uint32_t output_buffer_counter)
         time3 = (7 * dword_C0000004 - system_time_2) + time1;
 
         if (time1 < time2)
-        {
             time3 -= (time2 - time1) >> 4;
-        }
         else if (time1 > time2)
-        {
             time3 += (time1 - time2) >> 4;
-        }
 
         system_time_2 = time1;
         dword_C0000004 = (time3 >> 3) + ((time3 & 4) >> 2);
@@ -754,14 +721,10 @@ static int32_t sub_C0034970(Voice_Data *voice_data_ptr, int32_t arg_4)
         note_number += (voice_data_ptr->field_56 + 128) >> 8;
 
         if (note_number < 12)
-        {
             note_number += 12 * ((23 - note_number) / 12);
-        }
 
         if (note_number > 108)
-        {
             note_number -= 12 * ((note_number - 97) / 12);
-        }
     }
 
     return sub_C0037420(offset1 + 2 * note_number);
@@ -774,18 +737,14 @@ static void ProgramChange(struc_6 *stru6_channel_ptr, uint32_t program_number)
 
     data = stru6_channel_ptr->data;
     if (stru6_channel_ptr == &(stru_C0030080[DRUM_CHANNEL]))
-    {
         program_number = (program_number & 7) + 128;
-    }
 
     sub_C00373A0(1, sub_C0037420(sub_C00373A0(19, 0) + 2 * program_number));
 
     for (counter = 2; counter != 0; counter--)
     {
         for (index = 0; index < 14; index++)
-        {
             data[index] = (int16_t)sub_C0037400();
-        }
 
         data[3] >>= 8;
         data[4] >>= 8;
@@ -828,12 +787,8 @@ static void AllChannelNotesOff(int32_t channel_num)
     int index;
 
     for (index = 0; index < MAX_VOICES; index++)
-    {
         if ((voice_data[index].channel_num_2 >> 1) == channel_num)
-        {
             VoiceNoteOff(&(voice_data[index]));
-        }
-    }
 }
 
 static void AllChannelSoundsOff(int32_t channel_num)
@@ -841,12 +796,8 @@ static void AllChannelSoundsOff(int32_t channel_num)
     int index;
 
     for (index = 0; index < MAX_VOICES; index++)
-    {
         if ((voice_data[index].channel_num_2 >> 1) == channel_num)
-        {
             VoiceSoundOff(&(voice_data[index]));
-        }
-    }
 }
 
 static void ControllerSettingsOn(int32_t channel_num)
@@ -854,18 +805,10 @@ static void ControllerSettingsOn(int32_t channel_num)
     int index;
 
     for (index = 0; index < maximum_polyphony; index++)
-    {
         if ((voice_data[index].channel_num_2 >> 1) == channel_num)
-        {
             if (voice_data[index].note_number != 255)
-            {
                 if ((voice_data[index].vflags & VFLAG_Value80) == 0)
-                {
                     voice_data[index].vflags |= VFLAG_Value40;
-                }
-            }
-        }
-    }
 }
 
 static void ControllerSettingsOff(int32_t channel_num)
@@ -952,22 +895,16 @@ static void StartPlayingVoice(Voice_Data *voice_data_ptr, Channel_Data *channel_
             value2 += (voice_data_ptr->field_56 + 128) >> 8;
 
             if (value2 < 12)
-            {
                 value2 += 12 * ((23 - value2) / 12);
-            }
 
             if (value2 > 108)
-            {
                 value2 -= 12 * ((value2 - 97) / 12);
-            }
         }
 
         value2 = (value2 - voice_data_ptr->field_68) << 8;
 
         for (; value3 != 0; value3 -= 0x1000)
-        {
             value2 >>= 1;
-        }
     }
 
     value2 += voice_data_ptr->field_44;
@@ -977,34 +914,24 @@ static void StartPlayingVoice(Voice_Data *voice_data_ptr, Channel_Data *channel_
     sub_C0036C20(voice_data_ptr);
 
     value4 = stru6_data_ptr[12];
-    value5 = dword_C0032AA8[effect_type + 1][voice_data_ptr->note_velocity];
+    value5 = dword_C0032AA8[effect_type][voice_data_ptr->note_velocity];
 
     if (value4 >= 0)
-    {
         value5 = 127 - value5;
-    }
     else
-    {
         value4 = -value4;
-    }
 
     value6 = (127 - (((int32_t)(value4 * value5)) >> 7)) + stru6_data_ptr[13];
 
     if ((channel_data_ptr->chflags & CHFLAG_Soft) != 0)
-    {
         value6 >>= 1;
-    }
 
     if (value6 > 127)
-    {
         voice_data_ptr->field_62 = 127;
-    }
     else
     {
         if (value6 <= 0)
-        {
             value6 = 0;
-        }
         voice_data_ptr->field_62 = value6;
     }
 
@@ -1032,9 +959,7 @@ static void StartPlayingVoice(Voice_Data *voice_data_ptr, Channel_Data *channel_
     }
 
     if ((channel_data_ptr->chflags & CHFLAG_Sustain) != 0)
-    {
         voice_data_ptr->vflags |= VFLAG_Value40;
-    }
 
     if ((voice_data_ptr->channel_num_2 & ~1) == (2 * DRUM_CHANNEL))
     {
@@ -1055,15 +980,9 @@ static void StartPlayingVoice(Voice_Data *voice_data_ptr, Channel_Data *channel_
             if (drum_note_ptr[0] != voice_data_ptr->note_number) continue;
 
             for (index = 0; index < maximum_polyphony; index++)
-            {
                 if (voice_data[index].note_number == drum_note_ptr[1])
-                {
                     if ((voice_data[index].channel_num_2 & ~1) == (2 * DRUM_CHANNEL))
-                    {
                         voice_data[index].note_number = 255;
-                    }
-                }
-            }
         }
     }
     else
@@ -1072,13 +991,9 @@ static void StartPlayingVoice(Voice_Data *voice_data_ptr, Channel_Data *channel_
         value8 = channel_data_ptr->pan + stru6_data_ptr[5];
 
         if (value8 > 127)
-        {
             value8 = 127;
-        }
         else if (value8 <= -127)
-        {
             value8 = -127;
-        }
 
         voice_data_ptr->field_6A = sub_C0037420(value7 + 2 * value8 + 256);
         sub_C0036A20(voice_data_ptr);
@@ -1090,12 +1005,8 @@ static void AllVoicesSoundsOff(void)
     int index;
 
     for (index = 0; index < MAX_VOICES; index++)
-    {
         if (voice_data[index].note_number != 255)
-        {
             VoiceSoundOff(&(voice_data[index]));
-        }
-    }
 }
 
 static int32_t InitializeVariables(void)
@@ -1117,12 +1028,8 @@ static void CountActiveVoices(void)
 
     active_voices = 0;
     for (index = 0; index < maximum_polyphony; index++)
-    {
         if (voice_data[index].note_number != 255)
-        {
             active_voices++;
-        }
-    }
     current_polyphony = active_voices;
 }
 
@@ -1137,18 +1044,12 @@ static void ReduceActiveVoices(int32_t maximum_voices)
     {
         index2 = recent_voice_index + 1;
         if (index2 >= maximum_polyphony)
-        {
             index2 = 0;
-        }
 
         active_voices = 0;
         for (index1 = 0; index1 < maximum_polyphony; index1++)
-        {
             if (voice_data[index1].note_number != 255)
-            {
                 active_voices++;
-            }
-        }
 
         index3 = index2;
         do
@@ -1170,9 +1071,7 @@ static void ReduceActiveVoices(int32_t maximum_voices)
 
             index3++;
             if (index3 >= maximum_polyphony)
-            {
                 index3 = 0;
-            }
         } while (index3 != recent_voice_index);
 
         for (;;)
@@ -1183,20 +1082,14 @@ static void ReduceActiveVoices(int32_t maximum_voices)
                 active_voices--;
 
                 if (active_voices <= maximum_voices)
-                {
                     break;
-                }
             }
 
             index2++;
             if (index2 >= maximum_polyphony)
-            {
                 index2 = 0;
-            }
             if (index2 == recent_voice_index)
-            {
                 return;
-            }
         }
 
         current_polyphony = active_voices;
@@ -1204,9 +1097,7 @@ static void ReduceActiveVoices(int32_t maximum_voices)
     else
     {
         for (index1 = 0; index1 < maximum_polyphony; index1++)
-        {
             voice_data[index1].note_number = 255;
-        }
         current_polyphony = 0;
     }
 }
@@ -1220,9 +1111,7 @@ static void SetMaximumVoices(int maximum_voices)
     maximum_polyphony = maximum_voices;
 
     for (index = maximum_voices; index < MAX_VOICES; index++)
-    {
         voice_data[index].note_number = 255;
-    }
 
     CountActiveVoices();
 
@@ -1278,9 +1167,7 @@ static void ProcessMidiData(void)
                     NoteOn(0);
 
                     if (stru6_ptr->data[1] & 0x8000)
-                    {
                         NoteOn(1);
-                    }
                 }
                 else
                 {
@@ -1298,9 +1185,7 @@ static void ProcessMidiData(void)
                     int drum_kit_index;
 
                     for (drum_kit_index = 0; drum_kit_index < 8; drum_kit_index++)
-                    {
                         if (drum_kits[drum_kit_index] == event_data[1]) break;
-                    }
                     if (drum_kit_index >= 8) break;
 
                     channel_data_ptr->program_change = drum_kit_numbers[drum_kit_index];
@@ -1363,9 +1248,7 @@ static Voice_Data *FindAvailableVoice(int32_t channel_num_2, int32_t note_number
 
         index3++;
         if (index3 >= maximum_polyphony)
-        {
             index3 = 0;
-        }
     } while (index3 != index1);
 
     index4 = index1;
@@ -1379,9 +1262,7 @@ static Voice_Data *FindAvailableVoice(int32_t channel_num_2, int32_t note_number
 
         index4++;
         if (index4 >= maximum_polyphony)
-        {
             index4 = 0;
-        }
     } while (index4 != index1);
 
     recent_voice_index = index1;
@@ -1393,22 +1274,12 @@ static Voice_Data *FindVoice(int32_t channel_num_2, int32_t note_number)
     int index;
 
     for (index = 0; index < maximum_polyphony; index++)
-    {
         if (voice_data[index].note_number != 255)
-        {
             if (voice_data[index].channel_num_2 == channel_num_2)
-            {
                 if (voice_data[index].note_number == note_number)
-                {
                     if ((voice_data[index].vflags & VFLAG_Value80) == 0)
-                    {
                         return &(voice_data[index]);
-                    }
-                }
-            }
-        }
 
-    }
 
     return NULL;
 }
@@ -1419,21 +1290,17 @@ static void NoteOff(void)
 
     if ((event_data[0] & 0x0F) == DRUM_CHANNEL)
     {
-        if (channel_data_ptr->program_change != 7) return; // drum kit 49 (Orchestra Kit ?)
-        if (event_data[1] != 88) return; // Applause ?
+        if (channel_data_ptr->program_change != 7) return; // drum kit 49 (Orchestra Kit)
+        if (event_data[1] != 88) return; // Applause
     }
 
     voice = FindVoice(2 * (event_data[0] & 0x0F), event_data[1]);
     if (voice != NULL)
-    {
         VoiceNoteOff(voice);
-    }
 
     voice = FindVoice(2 * (event_data[0] & 0x0F) + 1, event_data[1]);
     if (voice != NULL)
-    {
         VoiceNoteOff(voice);
-    }
 }
 
 static void NoteOn(int32_t arg_0)
@@ -1442,9 +1309,7 @@ static void NoteOn(int32_t arg_0)
 
     voice = FindAvailableVoice(arg_0 + 2 * (event_data[0] & 0x0F), event_data[1]);
     if (voice->note_number != 255)
-    {
         VoiceSoundOff(voice);
-    }
 
     voice->channel_num_2 = arg_0 + 2 * (event_data[0] & 0x0F);
     voice->note_number = event_data[1];
@@ -1464,23 +1329,12 @@ static void ControlChange(void)
             if (channel_data_ptr->parameter_number_MSB == 0)
             {
                 if (channel_data_ptr->parameter_number_LSB == 0) // Pitch bend range
-                {
-                    if (channel_data_ptr->data_entry_MSB <= 12)
-                    {
                         channel_data_ptr->pitch_bend_sense = 2 * ((channel_data_ptr->data_entry_MSB << 7) + channel_data_ptr->data_entry_LSB);
-                    }
-                }
                 else if (channel_data_ptr->parameter_number_LSB == 1) // Fine tuning
-                {
                     channel_data_ptr->fine_tune = ((channel_data_ptr->data_entry_LSB & 0x60) >> 5) + 4 * channel_data_ptr->data_entry_MSB - 256;
-                }
                 else if (channel_data_ptr->parameter_number_LSB == 2) // Coarse tuning
-                {
                     if (channel_data_ptr->data_entry_MSB >= 40 && channel_data_ptr->data_entry_MSB <= 88)
-                    {
                         channel_data_ptr->coarse_tune = channel_data_ptr->data_entry_MSB - 64;
-                    }
-                }
             }
             break;
         case 0x07: // Main Volume
@@ -1497,23 +1351,9 @@ static void ControlChange(void)
             if (channel_data_ptr->parameter_number_MSB == 0)
             {
                 if (channel_data_ptr->parameter_number_LSB == 0) // Pitch bend range
-                {
-                    if (channel_data_ptr->data_entry_MSB <= 12)
-                    {
                         channel_data_ptr->pitch_bend_sense = 2 * ((channel_data_ptr->data_entry_MSB << 7) + channel_data_ptr->data_entry_LSB);
-                    }
-                }
                 else if (channel_data_ptr->parameter_number_LSB == 1) // Fine tuning
-                {
                     channel_data_ptr->fine_tune = ((channel_data_ptr->data_entry_LSB & 0x60) >> 5) + 4 * channel_data_ptr->data_entry_MSB - 256;
-                }
-                else if (channel_data_ptr->parameter_number_LSB == 2) // Coarse tuning
-                {
-                    if (channel_data_ptr->data_entry_MSB >= 40 && channel_data_ptr->data_entry_MSB <= 88)
-                    {
-                        channel_data_ptr->coarse_tune = channel_data_ptr->data_entry_MSB - 64;
-                    }
-                }
             }
             break;
         case 0x40: // Damper pedal (sustain)
@@ -1542,22 +1382,19 @@ static void ControlChange(void)
           break;
         case 0x43: // Soft Pedal
             if (event_data[2] <= 63)
-            {
                 channel_data_ptr->chflags &= ~CHFLAG_Soft;
-            }
             else
-            {
                 channel_data_ptr->chflags |= CHFLAG_Soft;
-            }
             break;
         case 0x62: // Non-Registered Parameter Number (LSB)
-            channel_data_ptr->parameter_number_LSB = 255;
-            break;
         case 0x63: // Non-Registered Parameter Number (MSB)
             channel_data_ptr->parameter_number_MSB = 255;
+            channel_data_ptr->parameter_number_LSB = 255;
             break;
         case 0x64: // Registered Parameter Number (LSB)
             channel_data_ptr->parameter_number_LSB = event_data[2];
+            channel_data_ptr->data_entry_MSB = 0;
+            channel_data_ptr->data_entry_LSB = 0;
             break;
         case 0x65: // Registered Parameter Number (MSB)
             channel_data_ptr->parameter_number_MSB = event_data[2];
@@ -1589,23 +1426,19 @@ static void SystemExclusive(void)
         AllVoicesSoundsOff();
 
         for (index = 0; index < MIDI_CHANNELS; index++)
-        {
             ResetChannel(&(channel_data[index]));
-        }
 
         for (index = 0; index < MIDI_CHANNELS; index++)
-        {
             ProgramChange(&(stru_C0030080[index]), 0);
-        }
 
         return;
     }
 
-    // change polyphony
     if (event_data[0] == 0xF0 && event_data[1] == 0x44 && event_data[2] == 0x0E && event_data[3] == 0x03)
     {
         switch (event_data[4])
         {
+            // change polyphony
             case 0x10:
                 SetMaximumVoices(24);
                 maximum_polyphony_new_value = 24;
@@ -1625,17 +1458,7 @@ static void SystemExclusive(void)
                 maximum_polyphony = 64;
                 maximum_polyphony_new_value = 64;
                 return;
-
-            default:
-                break;
-        }
-    }
-
-    // change reverb
-    if (event_data[0] == 0xF0 && event_data[1] == 0x44 && event_data[2] == 0x0E && event_data[3] == 0x03)
-    {
-        switch (event_data[4])
-        {
+            // change reverb
             case 0x20:
                 DisableReverb();
                 return;
@@ -1649,17 +1472,7 @@ static void SystemExclusive(void)
                 EnableReverb();
                 SetReverbShift(0);
                 return;
-
-            default:
-                break;
-        }
-    }
-
-    // change effect
-    if (event_data[0] == 0xF0 && event_data[1] == 0x44 && event_data[2] == 0x0E && event_data[3] == 0x03)
-    {
-        switch (event_data[4])
-        {
+            // change effect
             case 0x40:
                 effect_type = 0;
                 return;
@@ -1738,9 +1551,7 @@ static void DefragmentVoices(void)
         if (voice_data[index1].note_number != 255) continue;
 
         if (index2 < index1)
-        {
             index2 = index1;
-        }
         while (voice_data[index2].note_number == 255)
         {
             index2++;
@@ -1775,12 +1586,8 @@ static void GenerateOutputData(uint8_t *output_ptr, uint32_t offset1, uint32_t o
 
     max_active_index = -1;
     for (index1 = 0; index1 < maximum_polyphony; index1++)
-    {
         if (voice_data[index1].note_number != 255)
-        {
             max_active_index = index1;
-        }
-    }
 
     for (index2 = offset1; index2 < offset2; index2++)
     {
@@ -1909,22 +1716,14 @@ static void GenerateOutputData(uint8_t *output_ptr, uint32_t offset1, uint32_t o
         }
 
         if (left > 32767)
-        {
             left = 32767;
-        }
         else if (left <= -32767)
-        {
             left = -32767;
-        }
 
         if (right > 32767)
-        {
             right = 32767;
-        }
         else if (right <= -32767)
-        {
             right = -32767;
-        }
 
         ((int16_t *)output_ptr)[2 * index2] = left;
         ((int16_t *)output_ptr)[2 * index2 + 1] = right;
@@ -1963,9 +1762,7 @@ static uint8_t GetValueFromMidiDataBuffer(void)
     write_index = midi_data_write_index;
     read_index = midi_data_read_index;
     if (write_index == read_index)
-    {
         return 0xFF;
-    }
 
     event_time = 0;
     for (index = 0; index < 4; index++)
@@ -1991,9 +1788,7 @@ static uint8_t GetValueFromMidiDataBuffer(void)
     }
 
     if (event_time + 100 > system_time_1)
-    {
         return 0xFF;
-    }
 
     result = midi_data_buffer[read_index];
     midi_data_read_index = (read_index + 1) & 0xFFFF;
@@ -2025,9 +1820,7 @@ static void sub_C0036A80(Voice_Data *voice_data_ptr)
     offset1 += 4 * (voice_data_ptr->vflags & VFLAG_Mask07);
 
     if ((voice_data_ptr->vflags & VFLAG_MaskC0) == VFLAG_Value80)
-    {
         offset1 += 32;
-    }
 
     voice_data_ptr->field_48 = sub_C0037420(offset1);
     voice_data_ptr->field_4A = sub_C0037400();
@@ -2045,9 +1838,7 @@ static void sub_C0036B00(Voice_Data *voice_data_ptr)
     offset1 += (voice_data_ptr->vflags & VFLAG_Mask38) >> 1;
 
     if ((voice_data_ptr->vflags & VFLAG_MaskC0) == VFLAG_Value80)
-    {
         offset1 += 32;
-    }
 
     value1 = sub_C0037420(offset1);
     value1 = ((voice_data_ptr->field_62 * (value1 >> 8)) & 0xFF00) | (value1 & 0xFF);
@@ -2061,9 +1852,7 @@ static void sub_C0036B00(Voice_Data *voice_data_ptr)
 
     value2 = sub_C0037400() >> 8;
     if ((value2 & 0xE0) == 0x20)
-    {
         value3 = (value2 & 0x1F) << 8;
-    }
     else
     {
         value3 = value2;
@@ -2081,9 +1870,7 @@ static void sub_C0036B00(Voice_Data *voice_data_ptr)
     }
 
     if (value3 > 0x7FFF)
-    {
         value3 = 0x7FFF;
-    }
 
     voice_data_ptr->vflags = (voice_data_ptr->vflags & VFLAG_NotMask38) | ((voice_data_ptr->field_4E & 7) << 3);
     voice_data_ptr->field_50 = value3;
@@ -2114,12 +1901,8 @@ static void ProcessPhase(void)
             sub_C0037140();
 
             for (index = 0; index < maximum_polyphony; index++)
-            {
                 if (voice_data[index].note_number != 255)
-                {
                     voice_data[index].field_54 += dword_C0032188[voice_data[index].field_5A + 112];
-                }
-            }
 
             break;
 
@@ -2142,13 +1925,9 @@ static void ProcessPhase(void)
                     channel = &(channel_data[voice_data[index].channel_num_2 >> 1]);
                     value = voice_data[index].field_58 + channel->channel_pressure + channel->modulation;
                     if (value > 127)
-                    {
                         value = 127;
-                    }
                     else if (value < 0)
-                    {
                         value = 0;
-                    }
 
                     sub_C0034890(&(voice_data[index]), (int16_t)(voice_data[index].field_44 + (((int32_t)(value * (voice_data[index].field_54 >> 8))) >> 7) + (voice_data[index].field_4C >> 3)));
                 }
@@ -2187,13 +1966,9 @@ static void ProcessPhase(void)
                     channel = &(channel_data[voice_data[index].channel_num_2 >> 1]);
                     value = voice_data[index].field_58 + channel->channel_pressure + channel->modulation;
                     if (value > 127)
-                    {
                         value = 127;
-                    }
                     else if (value < 0)
-                    {
                         value = 0;
-                    }
 
                     sub_C0034890(&(voice_data[index]), (int16_t)(voice_data[index].field_44 + (((int32_t)(value * (voice_data[index].field_54 >> 8))) >> 7) + (voice_data[index].field_4C >> 3)));
                 }
@@ -2215,9 +1990,7 @@ static int32_t sub_C0036FB0(int16_t value3)
     do
     {
         if (value2 < value3)
-        {
             break;
-        }
         value1++;
         value2 >>= 1;
     } while (value2);
@@ -2239,9 +2012,7 @@ static void sub_C0036FE0(void)
         {
             value3 = value2 + voice_data[index].field_4A;
             if (value3 > 32767)
-            {
                 value3 = 32767;
-            }
 
             if (value1 > value3)
             {
@@ -2253,9 +2024,7 @@ static void sub_C0036FE0(void)
         {
             value3 = value2 - voice_data[index].field_4A;
             if (value3 < -32767)
-            {
                 value3 = -32767;
-            }
 
             if (value1 < value3)
             {
@@ -2287,9 +2056,7 @@ static void sub_C0037140(void)
         {
             value1 += value2;
             if (value1 > 32767)
-            {
                 value1 = 32767;
-            }
 
             choice = (value3 <= value1)?1:0;
         }
@@ -2297,9 +2064,7 @@ static void sub_C0037140(void)
         {
             value1 -= value2;
             if (value1 < -32767)
-            {
                 value1 = -32767;
-            }
 
             choice = (value3 >= value1)?1:0;
         }
@@ -2327,33 +2092,27 @@ static int32_t InitializeStructures(void)
     int index;
 
     for (index = 0; index < MAX_VOICES; index++)
-    {
         voice_data[index].note_number = 255;
-    }
 
     for (index = 0; index < MIDI_CHANNELS; index++)
     {
         channel_data[index].program_change = 0;
-        channel_data[index].pitch_bend = 0;
-        channel_data[index].channel_pressure = 0;
         channel_data[index].modulation = 0;
-        channel_data[index].volume = 100;
-        channel_data[index].pan = 0;
+        channel_data[index].channel_pressure = 0;
         channel_data[index].expression = 127;
-        channel_data[index].chflags &= ~CHFLAG_Sustain;
+        channel_data[index].volume = 100;
+        channel_data[index].pitch_bend = 0;
+        channel_data[index].pan = 0;
+        channel_data[index].chflags = 0;
         channel_data[index].pitch_bend_sense = 512;
         channel_data[index].fine_tune = 0;
         channel_data[index].coarse_tune = 0;
-        channel_data[index].parameter_number_LSB = 255;
         channel_data[index].parameter_number_MSB = 255;
-        channel_data[index].data_entry_MSB = 0;
-        channel_data[index].data_entry_LSB = 0;
+        channel_data[index].parameter_number_LSB = 255;
     }
 
     for (index = 0; index < MIDI_CHANNELS; index++)
-    {
         ProgramChange(&(stru_C0030080[index]), 0);
-    }
 
     return 0;
 }
@@ -2365,34 +2124,30 @@ static int32_t EMPTY_DeinitializeStructures(void)
 
 static void ResetAllControllers(Channel_Data *channel_data_ptr)
 {
+    channel_data_ptr->modulation = 0;
+    channel_data_ptr->channel_pressure = 0;
     channel_data_ptr->expression = 127;
     channel_data_ptr->pitch_bend = 0;
-    channel_data_ptr->channel_pressure = 0;
-    channel_data_ptr->parameter_number_LSB = 255;
-    channel_data_ptr->modulation = 0;
+    channel_data_ptr->chflags = 0;
     channel_data_ptr->parameter_number_MSB = 255;
-    channel_data_ptr->data_entry_MSB = 0;
-    channel_data_ptr->data_entry_LSB = 0;
-    channel_data_ptr->chflags &= ~CHFLAG_Sustain;
+    channel_data_ptr->parameter_number_LSB = 255;
 }
 
 static void ResetChannel(Channel_Data *channel_data_ptr)
 {
-    channel_data_ptr->volume = 100;
     channel_data_ptr->program_change = 0;
-    channel_data_ptr->expression = 127;
-    channel_data_ptr->pitch_bend_sense = 512;
-    channel_data_ptr->chflags &= ~CHFLAG_Sustain;
-    channel_data_ptr->pitch_bend = 0;
-    channel_data_ptr->channel_pressure = 0;
     channel_data_ptr->modulation = 0;
-    channel_data_ptr->parameter_number_LSB = 255;
+    channel_data_ptr->channel_pressure = 0;
+    channel_data_ptr->expression = 127;
+    channel_data_ptr->volume = 100;
+    channel_data_ptr->pitch_bend = 0;
     channel_data_ptr->pan = 0;
-    channel_data_ptr->parameter_number_MSB = 255;
+    channel_data_ptr->chflags = 0;
+    channel_data_ptr->pitch_bend_sense = 512;
     channel_data_ptr->fine_tune = 0;
-    channel_data_ptr->data_entry_MSB = 0;
     channel_data_ptr->coarse_tune = 0;
-    channel_data_ptr->data_entry_LSB = 0;
+    channel_data_ptr->parameter_number_MSB = 255;
+    channel_data_ptr->parameter_number_LSB = 255;
 }
 
 static uint32_t sub_C00373A0(uint32_t arg_0, int32_t arg_4)
@@ -2423,4 +2178,3 @@ static int16_t sub_C0037420(uint32_t arg_0)
     rom_offset = arg_0 + 2;
     return (int16_t)READ_LE_UINT16(romsxgm_ptr + arg_0);
 }
-
