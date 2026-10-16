@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022-2024 Roman Pauer
+ *  Copyright (C) 2022-2026 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -39,6 +39,8 @@ enum ParameterType
 uint32_t VLSG_GetVersion(void);
 const char *VLSG_GetName(void);
 void VLSG_SetFunc_GetTime(uint32_t (*get_time)(void));
+
+void VLSG_SetEnhancedMode(uint32_t mode);
 
 int32_t VLSG_SetParameter(uint32_t type, uintptr_t value);
 int32_t VLSG_PlaybackStart(void);

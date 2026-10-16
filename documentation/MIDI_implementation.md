@@ -25,7 +25,7 @@
 |CTRL 120|BnH 78H xx|All sounds off (abrupt stop of sound on channel n)|MIDI|
 |CTRL 121|BnH 79H xx|Reset all controllers|MIDI|
 |CTRL 123|BnH 7BH xx|All notes off|MIDI|
-|RPN 0000H|BnH 65H 00H 64H 00H 26H vl 06H vh|Pitch bend sensitivity in semitones #vh(0-12)|MIDI/GM|
+|RPN 0000H|BnH 65H 00H 64H 00H 26H vl 06H vh|Pitch bend sensitivity in semitones #vh(0-12 in original mode, 0-127 in enhanced mode)|MIDI/GM|
 |RPN 0001H|BnH 65H 00H 64H 01H 26H vl 06H vh|Fine tuning in cents (vh,vl=00 00H -100, vh,vl=40 00H 0, vh,vl=7F 7FH +99.99)|MIDI|
 |RPN 0002H|BnH 65H 00H 64H 02H 06H vv|Coarse tuning in half-tones (vv=28H -24, vv=40H 0, vv=58H +24)|MIDI|
 

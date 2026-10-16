@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022-2025 Roman Pauer
+ *  Copyright (C) 2022-2026 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -120,7 +120,7 @@ static uint32_t current_time;
 static unsigned int timediv;
 static midi_event_info *midi_events;
 
-static int frequency, polyphony, reverb_effect;
+static int frequency, polyphony, reverb_effect, enhanced_mode;
 
 static uint8_t midi_buffer[65536];
 static uint8_t *midi_buf[16];
@@ -320,9 +320,15 @@ static void usage(const char *progname)
         "  -t PATH  External compare tool path\n"
 #endif
         "  -r PATH  Rom path (path to ROMSXGM.BIN)\n"
-        "  -f NUM   Frequency (0 = 11025 Hz, 1 = 22050 Hz, 2 = 44100 Hz)\n"
-        "  -p NUM   Polyphony (0 = 24 voices, 1 = 32 voices, 2 = 48 voices, 3 = 64 voices)\n"
-        "  -e NUM   Reverb effect (0 = off, 1 = reverb 1, 2 = reverb 2)\n"
+        "  -f NUM   Frequency (0 = 11025 Hz, 1 = 22050 Hz, 2 = 44100 Hz [default])\n"
+        "  -p NUM   Polyphony (0 = 24 voices, 1 = 32 voices, 2 = 48 voices, 3 = 64 voices [default])\n"
+        "  -e NUM   Reverb effect (0 = off [default], 1 = reverb 1, 2 = reverb 2)\n"
+#if PCM_TOOL == PCM_CONVERT_INTERNAL
+        "  -m NUM   Mode (0 = original, 1 = enhanced [default])\n"
+#endif
+#if PCM_TOOL == PCM_COMPARE_DLL_INTERNAL || PCM_TOOL == PCM_COMPARE_DLL_EXTERNAL
+        "  -m NUM   Mode (0 = original [default], 1 = enhanced)\n"
+#endif
         "  -h       Help\n",
         basename,
         progname
@@ -342,6 +348,14 @@ int main(int argc, char *argv[])
 
     // reverb effect: 0 = off, 1 = reverb 1, 2 = reverb 2
     reverb_effect = 0;
+
+    // mode: 0 = original, 1 = enhanced
+#if PCM_TOOL == PCM_CONVERT_INTERNAL
+    enhanced_mode = 1;
+#endif
+#if PCM_TOOL == PCM_CONVERT_DLL || PCM_TOOL == PCM_COMPARE_DLL_INTERNAL || PCM_TOOL == PCM_COMPARE_DLL_EXTERNAL
+    enhanced_mode = 0;
+#endif
 
     // parse arguments
     if (argc > 1)
@@ -424,6 +438,17 @@ int main(int argc, char *argv[])
                             }
                         }
                         break;
+                    case 'm': // mode
+                        if ((i + 1) < argc)
+                        {
+                            i++;
+                            j = atoi(argv[i]);
+                            if (j >= 0 && j <= 1)
+                            {
+                                enhanced_mode = j;
+                            }
+                        }
+                        break;
                     case 'h': // help
                         usage(argv[0]);
                     default:
@@ -492,6 +517,11 @@ int main(int argc, char *argv[])
 
     return_value = 0;
 
+
+    // set mode
+#if PCM_TOOL == PCM_CONVERT_INTERNAL || PCM_TOOL == PCM_COMPARE_DLL_INTERNAL
+    VLSG_SetEnhancedMode(enhanced_mode);
+#endif
 
     // set frequency
 #if PCM_TOOL == PCM_CONVERT_DLL || PCM_TOOL == PCM_COMPARE_DLL_INTERNAL || PCM_TOOL == PCM_COMPARE_DLL_EXTERNAL
@@ -652,9 +682,9 @@ int main(int argc, char *argv[])
         char command[8192];
 
 #if (defined(_MSC_VER) && __STDC_WANT_SECURE_LIB__) || (defined(__MINGW32__) && defined(_UCRT)) || (defined(__STDC_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__)
-        if (sprintf_s(command, sizeof(command), "%s -i \"%s\" -d \"%s\" -r \"%s\" -s -f %i -p %i -e %i", arg_exttool, arg_input, arg_dll, arg_rom, frequency, polyphony, reverb_effect) <= 0)
+        if (sprintf_s(command, sizeof(command), "%s -i \"%s\" -d \"%s\" -r \"%s\" -s -f %i -p %i -e %i -m %i", arg_exttool, arg_input, arg_dll, arg_rom, frequency, polyphony, reverb_effect, enhanced_mode) <= 0)
 #else
-        if (sprintf(command, "%s -i \"%s\" -d \"%s\" -r \"%s\" -s -f %i -p %i -e %i", arg_exttool, arg_input, arg_dll, arg_rom, frequency, polyphony, reverb_effect) <= 0)
+        if (sprintf(command, "%s -i \"%s\" -d \"%s\" -r \"%s\" -s -f %i -p %i -e %i -m %i", arg_exttool, arg_input, arg_dll, arg_rom, frequency, polyphony, reverb_effect, enhanced_mode) <= 0)
 #endif
         {
             fprintf(stderr, "error running external convert tool\n");

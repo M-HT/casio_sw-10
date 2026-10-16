@@ -1,6 +1,6 @@
 /**
  *
- *  Copyright (C) 2022-2025 Roman Pauer
+ *  Copyright (C) 2022-2026 Roman Pauer
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of
  *  this software and associated documentation files (the "Software"), to deal in
@@ -128,6 +128,9 @@ enum Channel_Flags
 static const char VLSG_Name[] = "CASIO SW-10";
 static uint32_t (*VLSG_GetTime)(void);
 
+// when enhanced_mode = 0, the library should generate the same output as the original code
+static uint32_t enhanced_mode = 0;
+
 static uint32_t dword_C0000000;
 static uint32_t dword_C0000004;
 static uint32_t dword_C0000008;
@@ -163,6 +166,12 @@ static uint32_t output_buffer_size_samples;
 static uint32_t output_buffer_size_bytes;
 static uint32_t effect_param_value;
 
+// the formula for this table is: exptabm12[x] = trunc(pow(2.0, x / 12.0) * 65536.0)
+static const uint32_t exptabm12[12] =
+{
+    65536, 69432, 73561, 77935, 82570, 87480, 92681, 98193, 104031, 110217, 116771, 123715
+};
+// the formula for this table is: dword_C0032188[x] = trunc(pow(2.0, (x - 60) / 12.0))
 static const uint32_t dword_C0032188[112+104+40] =
 {
         0,     0,     0,     0,     0,     0,     0,     0,
@@ -398,6 +407,12 @@ const char *VLSG_GetName(void)
 void VLSG_SetFunc_GetTime(uint32_t (*get_time)(void))
 {
     VLSG_GetTime = get_time;
+}
+
+
+void VLSG_SetEnhancedMode(uint32_t mode)
+{
+    enhanced_mode = mode;
 }
 
 
@@ -715,6 +730,66 @@ static void sub_C0034890(Voice_Data *voice_data_ptr, int32_t arg_4)
 
     channel_ptr = &(channel_data[voice_data_ptr->channel_num_2 >> 1]);
     value1 = (((int32_t)(channel_ptr->pitch_bend * channel_ptr->pitch_bend_sense)) >> 13) + arg_4 + channel_ptr->fine_tune + 2180;
+
+    if (enhanced_mode)
+    {
+        if (216 + (value1 >> 8) < 60) // check lower boundary of dword_C0032188 (plus first 60 values which are zero)
+        {
+            voice_data_ptr->field_24 = 0;
+            return;
+        }
+        else if (216 + (value1 >> 8) >= 256) // check upper boundary of dword_C0032188
+        {
+            uint32_t div12, mod12;
+
+            // original code (below) uses value2 = dword_C0032188[216 + (value1 >> 8)] * dword_C0032588[value1 & 0xFF];
+            //   which works when the index is in the boundaries of dword_C0032188
+            // to work outside the boudaries, dword_C0032188[216 + (value1 >> 8)] can be replaced, using formula for dword_C0032188, with:
+            //   trunc(pow(2.0, (216 + (value1 >> 8) - 60) / 12.0))
+            // this can be replaced with trunc(pow(2.0, div12) * pow(2.0, mod12 / 12.0))
+            //   where div12 and mod12 are whole numbers and 12 * div12 + mod12 = 216 + (value1 >> 8) - 60
+            // pow(2.0, div12) is a whole number, which can be replaced with (1 << div12)
+            // pow(2.0, mod12 / 12.0) is one of 12 numbers in range <1, 2), which can be replaced with precalculated table exptabm12,
+            //   which uses fixed point numbers in format 1.16
+            //   16 fraction bits is the largest number of bits where exptabm12[x] * dword_C0032588[y] fits into unsigned 32-bit integer
+            // this means that the original formula can be replaced with:
+            //   value2 = ((exptabm12[mod12] * dword_C0032588[value1 & 0xFF]) << div12) >> 16;
+
+            value2 = (216 + (value1 >> 8)) - 60; // value2 >= 196
+            div12 = value2 / 12; // div12 >= 16
+            mod12 = value2 - 12 * div12; // mod12 < 12
+            value2 = exptabm12[mod12] * dword_C0032588[value1 & 0xFF];
+
+            voice_data_ptr->field_24 = 0xffffffffu; // clamp to maximum value by default
+            switch (output_frequency)
+            {
+                case 11025:
+                    if (div12 <= 33) voice_data_ptr->field_24 = value2 >> (33 - div12);
+                    break;
+                case 22050:
+                    if (div12 <= 34) voice_data_ptr->field_24 = value2 >> (34 - div12);
+                    break;
+                case 44100:
+                    if (div12 <= 35) voice_data_ptr->field_24 = value2 >> (35 - div12);
+                    break;
+                case 16538:
+                    if (div12 <= 33) voice_data_ptr->field_24 = ((((uint64_t)value2) << (div12 - 16)) / 3) >> 16;
+                    break;
+                default:
+                    if (div12 <= 33) voice_data_ptr->field_24 = ((value2 >> (33 - div12)) * (uint64_t)11025) / output_frequency;
+                    else if (div12 <= 51)
+                    {
+                        uint64_t tempval;
+                        tempval = (value2 * (uint64_t)(11025u << (div12 - 33))) / output_frequency;
+                        if (tempval < voice_data_ptr->field_24) voice_data_ptr->field_24 = tempval;
+                    }
+                    break;
+            }
+
+            return;
+        }
+    }
+
     value2 = dword_C0032188[216 + (value1 >> 8)] * dword_C0032588[value1 & 0xFF];
 
     voice_data_ptr->field_24 = value2;
@@ -1465,7 +1540,7 @@ static void ControlChange(void)
             {
                 if (channel_data_ptr->parameter_number_LSB == 0) // Pitch bend range
                 {
-                    if (channel_data_ptr->data_entry_MSB <= 12)
+                    if (channel_data_ptr->data_entry_MSB <= 12 || enhanced_mode)
                     {
                         channel_data_ptr->pitch_bend_sense = 2 * ((channel_data_ptr->data_entry_MSB << 7) + channel_data_ptr->data_entry_LSB);
                     }
@@ -1498,7 +1573,7 @@ static void ControlChange(void)
             {
                 if (channel_data_ptr->parameter_number_LSB == 0) // Pitch bend range
                 {
-                    if (channel_data_ptr->data_entry_MSB <= 12)
+                    if (channel_data_ptr->data_entry_MSB <= 12 || enhanced_mode)
                     {
                         channel_data_ptr->pitch_bend_sense = 2 * ((channel_data_ptr->data_entry_MSB << 7) + channel_data_ptr->data_entry_LSB);
                     }

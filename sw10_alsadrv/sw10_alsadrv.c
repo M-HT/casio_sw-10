@@ -57,7 +57,7 @@ static snd_pcm_t *midi_pcm;
 static volatile int midi_init_state;
 static volatile int midi_event_written;
 
-static int frequency, polyphony, reverb_effect, daemonize;
+static int frequency, polyphony, reverb_effect, enhanced_mode, daemonize;
 static const char *rom_filepath = "ROMSXGM.BIN";
 
 static uint8_t *rom_address;
@@ -663,10 +663,11 @@ static void usage(const char *progname)
     printf(
         "%s - CASIO Software Sound Generator SW-10\n"
         "Usage: %s [OPTIONS]...\n"
-        "  -f NUM   Frequency (0 = 11025 Hz, 1 = 22050 Hz, 2 = 44100 Hz)\n"
-        "  -p NUM   Polyphony (0 = 24 voices, 1 = 32 voices, 2 = 48 voices, 3 = 64 voices)\n"
-        "  -e NUM   Reverb effect (0 = off, 1 = reverb 1, 2 = reverb 2)\n"
+        "  -f NUM   Frequency (0 = 11025 Hz, 1 = 22050 Hz, 2 = 44100 Hz [default])\n"
+        "  -p NUM   Polyphony (0 = 24 voices, 1 = 32 voices, 2 = 48 voices, 3 = 64 voices [default])\n"
+        "  -e NUM   Reverb effect (0 = off [default], 1 = reverb 1, 2 = reverb 2)\n"
         "  -r PATH  Rom path (path to ROMSXGM.BIN)\n"
+        "  -m NUM   Mode (0 = original, 1 = enhanced [default])\n"
         "  -d       Daemonize\n"
         "  -h       Help\n",
         basename,
@@ -688,6 +689,9 @@ static void read_arguments(int argc, char *argv[])
 
     // reverb effect: 0 = off, 1 = reverb 1, 2 = reverb 2
     reverb_effect = 0;
+
+    // mode: 0 = original, 1 = enhanced
+    enhanced_mode = 1;
 
     daemonize = 0;
 
@@ -739,6 +743,17 @@ static void read_arguments(int argc, char *argv[])
                         if (j >= 0 && j <= 2)
                         {
                             reverb_effect = j;
+                        }
+                    }
+                    break;
+                case 'm': // mode
+                    if ((i + 1) < argc)
+                    {
+                        i++;
+                        j = atoi(argv[i]);
+                        if (j >= 0 && j <= 1)
+                        {
+                            enhanced_mode = j;
                         }
                     }
                     break;
@@ -858,6 +873,9 @@ static int start_synth(void)
         fprintf(stderr, "Error opening ROM file: %s\n", rom_filepath);
         return -1;
     }
+
+    // set mode
+    VLSG_SetEnhancedMode(enhanced_mode);
 
     // set frequency
     VLSG_SetParameter(PARAMETER_Frequency, frequency);
